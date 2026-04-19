@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ascendia CompTrack | Compliance Tracker — Client Onboarding</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:#f1f3f4;color:#333;min-height:100vh}
+.container{max-width:680px;margin:30px auto;padding:0 16px 40px}
+.header{background:linear-gradient(135deg,#1a1a2e 0%,#1a73e8 100%);padding:28px 32px;
+  border-radius:12px 12px 0 0;text-align:center;color:#fff}
+.header h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.header p{font-size:13px;color:#a8c7fa;margin:0}
+.trial-badge{display:inline-block;background:#0f9d58;color:#fff;font-size:12px;
+  font-weight:700;padding:4px 14px;border-radius:20px;margin:10px 0}
+.form-body{background:#fff;padding:28px 32px;border-radius:0 0 12px 12px;
+  box-shadow:0 4px 20px rgba(0,0,0,.12)}
+.step{display:none}.step.active{display:block}
+.section-title{font-size:15px;font-weight:700;color:#1a1a2e;margin:20px 0 14px;
+  padding-bottom:6px;border-bottom:2px solid #e8f0fe}
+.form-group{margin-bottom:18px}
+label{display:block;font-size:13px;font-weight:600;color:#444;margin-bottom:5px}
+label .req{color:#e53935;margin-left:2px}
+input[type=text],input[type=email],input[type=tel],input[type=date],select,textarea{
+  width:100%;padding:10px 13px;border:1.5px solid #ddd;border-radius:7px;
+  font-size:14px;font-family:inherit;background:#fafafa;transition:border .2s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#1a73e8;background:#fff}
+textarea{resize:vertical;min-height:80px}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:12px 0}
+@media(max-width:520px){.plan-grid{grid-template-columns:1fr}}
+.plan-card{border:2px solid #e0e0e0;border-radius:10px;padding:14px;cursor:pointer;
+  transition:all .2s;position:relative}
+.plan-card:hover{border-color:#1a73e8;background:#f0f7ff}
+.plan-card.selected{border-color:#1a73e8;background:#e8f0fe}
+.plan-card .plan-name{font-weight:700;font-size:14px;color:#1a1a2e}
+.plan-card .plan-price{font-size:20px;font-weight:700;color:#1a73e8;margin:4px 0}
+.plan-card .plan-desc{font-size:11px;color:#666}
+.plan-card .badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);
+  background:#f4b400;color:#1a1a2e;font-size:10px;font-weight:700;
+  padding:2px 10px;border-radius:10px;white-space:nowrap}
+.plan-card input[type=radio]{display:none}
+.compliance-section{margin-top:20px;display:none}
+.compliance-section.visible{display:block}
+.compliance-item{background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;
+  padding:14px;margin-bottom:10px;position:relative}
+.compliance-item .item-header{display:grid;grid-template-columns:1fr 140px 140px 36px;
+  gap:8px;align-items:end}
+@media(max-width:560px){.compliance-item .item-header{grid-template-columns:1fr;}}
+.compliance-item .remove-btn{background:#ffebee;color:#e53935;border:none;
+  border-radius:6px;padding:8px;cursor:pointer;font-size:16px;width:36px;height:36px}
+.compliance-item .remove-btn:hover{background:#e53935;color:#fff}
+.add-compliance-btn{background:#e8f5e9;color:#0f9d58;border:1.5px dashed #0f9d58;
+  border-radius:8px;padding:10px 18px;cursor:pointer;font-size:13px;font-weight:600;
+  width:100%;margin-top:8px;transition:all .2s}
+.add-compliance-btn:hover{background:#0f9d58;color:#fff}
+.compliance-limit-note{font-size:11px;color:#888;margin-top:6px;text-align:center}
+.btn{padding:12px 28px;border-radius:8px;border:none;cursor:pointer;font-size:14px;
+  font-weight:700;font-family:inherit;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,#1a73e8,#1557b0);color:#fff;width:100%;margin-top:8px}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn-back{background:#f1f3f4;color:#555;margin-right:10px}
+.btn-back:hover{background:#e0e0e0}
+.progress{display:flex;align-items:center;margin-bottom:24px;gap:8px}
+.progress-step{flex:1;height:5px;border-radius:3px;background:#e0e0e0;transition:background .3s}
+.progress-step.done{background:#1a73e8}
+.progress-step.active{background:#a8c7fa}
+.error-msg{color:#e53935;font-size:12px;margin-top:4px;display:none}
+.success-box{text-align:center;padding:40px 20px}
+.success-box .check{font-size:64px;margin-bottom:16px}
+.success-box h2{color:#0f9d58;font-size:22px;margin-bottom:10px}
+.success-box p{color:#555;line-height:1.7;font-size:14px}
+.info-box{background:#e8f5e9;border-left:4px solid #0f9d58;padding:12px 14px;
+  border-radius:6px;font-size:12px;color:#2e7d32;margin:12px 0}
+.warn-box{background:#fff8e1;border-left:4px solid #f4b400;padding:12px 14px;
+  border-radius:6px;font-size:12px;color:#e65100;margin:12px 0}
+.spinner{display:inline-block;width:18px;height:18px;border:3px solid #fff;
+  border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+<div style="font-size:36px;margin-bottom:8px;">🛡️</div>
+<h1>Ascendia CompTrack | Compliance Tracker</h1>
+<p>Client Onboarding Portal</p>
+<div class="trial-badge">🎉 14-Day FREE Trial — No Credit Card Required</div>
+</div>
+<div class="form-body">
+<div class="progress" id="progressBar"><div class="progress-step active" id="ps1"></div><div class="progress-step" id="ps2"></div><div class="progress-step" id="ps3"></div></div>
+<div class="step active" id="step1">
+<div class="section-title">👤 Step 1 of 3 — Personal Information</div>
+<div class="form-group"><label>Full Name <span class="req">*</span></label><input type="text" id="clientName" placeholder="Your full legal name" required><div class="error-msg" id="err_clientName">Please enter your full name.</div></div>
+<div class="form-group"><label>Email Address <span class="req">*</span></label><input type="email" id="email" placeholder="business@email.com" required><div class="error-msg" id="err_email">Please enter a valid email address.</div></div>
+<div class="form-group"><label>Phone Number <span class="req">*</span></label><input type="tel" id="phone" placeholder="+234 800 000 0000 (include country code)" required><div class="error-msg" id="err_phone">Please enter your phone number with country code.</div></div>
+<div class="form-group"><label>Country <span class="req">*</span></label><select id="country" onchange="handleCountryChange()" required><option value="">— Select Country —</option><option value="Nigeria">Nigeria</option><option value="United Kingdom">United Kingdom</option><option value="United States">United States</option><option value="Canada">Canada</option><option value="Germany">Germany</option><option value="France">France</option><option value="Netherlands">Netherlands</option><option value="South Africa">South Africa</option><option value="Ghana">Ghana</option><option value="Kenya">Kenya</option><option value="UAE">UAE</option><option value="India">India</option><option value="Australia">Australia</option><option value="Singapore">Singapore</option><option value="Ireland">Ireland</option><option value="Spain">Spain</option><option value="Italy">Italy</option><option value="Sweden">Sweden</option><option value="Poland">Poland</option><option value="Brazil">Brazil</option><option value="Other">Other</option></select><div class="error-msg" id="err_country">Please select your country.</div></div>
+<button class="btn btn-primary" onclick="goStep(1,2)">Continue → Business Info</button>
+</div>
+<div class="step" id="step2">
+<div class="section-title">🏢 Step 2 of 3 — Business Info & Plan</div>
+<div class="form-group"><label>Company / Organisation Name <span class="req">*</span></label><input type="text" id="companyName" placeholder="Your registered business name" required><div class="error-msg" id="err_companyName">Please enter your company name.</div></div>
+<div class="form-group"><label>Industry <span class="req">*</span></label><select id="industry" required><option value="">— Select Industry —</option><option value="Technology">Technology</option><option value="Finance & Banking">Finance & Banking</option><option value="Legal & Law">Legal & Law</option><option value="Healthcare">Healthcare</option><option value="Retail & E-commerce">Retail & E-commerce</option><option value="Education">Education</option><option value="Manufacturing">Manufacturing</option><option value="Real Estate">Real Estate</option><option value="Media & Telecoms">Media & Telecoms</option><option value="Non-Profit / NGO">Non-Profit / NGO</option><option value="Government / Public Sector">Government / Public Sector</option><option value="Other">Other</option></select><div class="error-msg" id="err_industry">Please select your industry.</div></div>
+<div id="planNGN" style="display:none">
+<div class="section-title">📦 Choose Your Plan — Nigeria (₦ NGN)</div>
+<div class="plan-grid">
+<label class="plan-card" id="card_plan_ngn_basic" onclick="selectPlan('NGN','BASIC',this)"><input type="radio" name="plan_ngn" value="BASIC"><div class="plan-name">BASIC</div><div class="plan-price">₦6,000</div><div class="plan-desc" style="font-size:10px;color:#888;">per month</div><div class="plan-desc" style="margin-top:6px;">Core compliance tracking | Up to 20 compliance tasks</div></label><label class="plan-card" id="card_plan_ngn_std" onclick="selectPlan('NGN','STANDARD',this)"><input type="radio" name="plan_ngn" value="STANDARD"><div class="badge">Most Popular</div><div class="plan-name">STANDARD</div><div class="plan-price">₦12,000</div><div class="plan-desc" style="font-size:10px;color:#888;">per month</div><div class="plan-desc" style="margin-top:6px;">Advanced compliance suite | Up to 50 tasks</div></label><label class="plan-card" id="card_plan_ngn_prem" onclick="selectPlan('NGN','PREMIUM',this)"><input type="radio" name="plan_ngn" value="PREMIUM"><div class="badge">Best Value</div><div class="plan-name">PREMIUM</div><div class="plan-price">₦24,000</div><div class="plan-desc" style="font-size:10px;color:#888;">per month</div><div class="plan-desc" style="margin-top:6px;">Full enterprise | Unlimited tasks</div></label></div>
+<div class="error-msg" id="err_planNGN">Please select a plan.</div>
+</div>
+<div id="planUSD" style="display:none">
+<div class="section-title">📦 Choose Your Plan — International ($ USD)</div>
+<div class="plan-grid">
+<label class="plan-card" id="card_plan_usd_basic" onclick="selectPlan('USD','BASIC',this)"><input type="radio" name="plan_usd" value="BASIC"><div class="plan-name">BASIC</div><div class="plan-price">$49</div><div class="plan-desc" style="font-size:10px;color:#888;">per month</div><div class="plan-desc" style="margin-top:6px;">Core compliance tracking | Up to 20 compliance tasks</div></label><label class="plan-card" id="card_plan_usd_std" onclick="selectPlan('USD','STANDARD',this)"><input type="radio" name="plan_usd" value="STANDARD"><div class="badge">Most Popular</div><div class="plan-name">STANDARD</div><div class="plan-price">$99</div><div class="plan-desc" style="font-size:10px;color:#888;">per month</div><div class="plan-desc" style="margin-top:6px;">Advanced compliance suite | Up to 50 tasks</div></label><label class="plan-card" id="card_plan_usd_prem" onclick="selectPlan('USD','PREMIUM',this)"><input type="radio" name="plan_usd" value="PREMIUM"><div class="badge">Best Value</div><div class="plan-name">PREMIUM</div><div class="plan-price">$199</div><div class="plan-desc" style="font-size:10px;color:#888;">per month</div><div class="plan-desc" style="margin-top:6px;">Full enterprise | Unlimited tasks</div></label></div>
+<div class="error-msg" id="err_planUSD">Please select a plan.</div>
+</div>
+<div class="info-box">🎉 All plans include a <strong>14-day FREE trial</strong>. No payment required to start.</div>
+<div style="margin-top:12px;"><button class="btn btn-back" onclick="goStep(2,1)">← Back</button><button class="btn btn-primary" style="width:auto;display:inline-block;" onclick="goStep(2,3)">Continue → Compliance Needs →</button></div>
+</div>
+<div class="step" id="step3">
+<div class="section-title">📋 Step 3 of 3 — Compliance Requirements & Submission</div>
+<div class="compliance-section visible" id="complianceSection">
+<div style="font-size:13px;font-weight:600;color:#444;margin-bottom:8px;">Add your compliance requirements <span id="planLimitNote" style="color:#1a73e8;"></span></div>
+<div id="complianceItems"></div>
+<button class="add-compliance-btn" id="addComplianceBtn" onclick="addComplianceItem()">+ Add Compliance Requirement</button>
+<div class="compliance-limit-note" id="complianceLimitNote"></div>
+</div>
+<div class="form-group" style="margin-top:16px;"><label>How did you hear about us?</label><select id="leadSource"><option value="">— Select —</option><option value="Referral / Word of Mouth">Referral / Word of Mouth</option><option value="Google Search">Google Search</option><option value="Social Media (Instagram/Twitter/Facebook)">Social Media (Instagram/Twitter/Facebook)</option><option value="LinkedIn">LinkedIn</option><option value="Email Campaign">Email Campaign</option><option value="Event / Conference / Seminar">Event / Conference / Seminar</option><option value="Other">Other</option></select></div>
+<div class="form-group"><label>Additional Notes</label><textarea id="notes" placeholder="Any specific compliance requirements or questions for our team?" rows="3"></textarea></div>
+<div class="warn-box">By submitting, you agree to a 14-day free trial. Payment details will be sent in your invoice.</div>
+<div style="margin-top:12px;"><button class="btn btn-back" onclick="goStep(3,2)">← Back</button><button class="btn btn-primary" style="width:auto;display:inline-block;" id="submitBtn" onclick="submitForm()">🚀 Submit Application</button></div>
+</div>
+<div class="step" id="stepSuccess">
+<div class="success-box"><div class="check">✅</div><h2>Application Received!</h2><p>Thank you for choosing <strong>Ascendia CompTrack | Compliance Tracker</strong>.<br>You will receive a <strong>welcome email + invoice</strong> within 24 hours.<br>Your <strong>14-day FREE trial</strong> starts from today.</p><p style="margin-top:16px;color:#1a73e8;font-weight:700;">— The Ascendia CompTrack Team</p></div>
+</div>
+</div>
+</div>
+<script>
+var WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxoVichuRgN0P9ds5Ok5N_oyMb2T-qve15t2q3IejejA9oIEGjFiok3At643fyCVQgTow/exec";
+var currentStep = 1;
+var selectedRegion = "";
+var selectedPlan = "";
+var complianceCount = 0;
+var maxCompliance = 20;
+
+var COMPLIANCE_PRESETS = {
+  "Nigeria": [
+    {name:"NDPC Data Protection Compliance",freq:"Annually"},
+    {name:"CAC Annual Returns",freq:"Annually"},
+    {name:"FIRS Tax Filing (CIT)",freq:"Annually"},
+    {name:"FIRS VAT Filing",freq:"Monthly"},
+    {name:"Pension Remittance (PenCom)",freq:"Monthly"},
+    {name:"NSITF Contribution",freq:"Monthly"},
+    {name:"NAFDAC Compliance",freq:"Annually"},
+    {name:"SMEDAN Registration",freq:"Annually"},
+    {name:"ITF Training Levy",freq:"Annually"},
+    {name:"NHF Housing Fund Remittance",freq:"Monthly"},
+    {name:"Industrial Inspectorate Registration",freq:"Annually"},
+    {name:"Business Premises Renewal",freq:"Annually"},
+    {name:"Annual General Meeting (AGM)",freq:"Annually"},
+    {name:"PAYE Remittance to State IRS",freq:"Monthly"},
+    {name:"Audited Financial Statements Filing",freq:"Annually"}
+  ],
+  "International": [
+    {name:"GDPR Compliance Review",freq:"Annually"},
+    {name:"ISO 27001 Certification",freq:"Annually"},
+    {name:"SOC 2 Type II Audit",freq:"Annually"},
+    {name:"PCI-DSS Compliance",freq:"Annually"},
+    {name:"AML / KYC Review",freq:"Quarterly"},
+    {name:"Companies House Annual Filing",freq:"Annually"},
+    {name:"Corporation Tax Filing",freq:"Annually"},
+    {name:"VAT Returns",freq:"Quarterly"},
+    {name:"HIPAA Risk Assessment",freq:"Annually"},
+    {name:"CCPA Privacy Compliance",freq:"Annually"},
+    {name:"Cyber Essentials Certification",freq:"Annually"},
+    {name:"FCA Regulatory Reporting",freq:"Quarterly"},
+    {name:"SEC Compliance Filing",freq:"Annually"},
+    {name:"Data Breach Notification Policy",freq:"Annually"},
+    {name:"Employment Law Compliance Audit",freq:"Annually"},
+    {name:"Environmental Compliance Report",freq:"Annually"},
+    {name:"Trademark / IP Renewal",freq:"Annually"},
+    {name:"Insurance Policy Renewal",freq:"Annually"},
+    {name:"Health & Safety Compliance",freq:"Annually"},
+    {name:"Anti-Bribery Compliance (FCPA/UK Bribery Act)",freq:"Annually"}
+  ]
+};
+
+function handleCountryChange() {
+  var c = document.getElementById("country").value;
+  selectedRegion = c === "Nigeria" ? "NGN" : "USD";
+  document.getElementById("planNGN").style.display = c === "Nigeria" ? "block" : "none";
+  document.getElementById("planUSD").style.display = c !== "" && c !== "Nigeria" ? "block" : "none";
+}
+
+function selectPlan(region, plan, el) {
+  selectedRegion = region;
+  selectedPlan = plan;
+  var group = region === "NGN" ? "plan_ngn" : "plan_usd";
+  document.querySelectorAll("[id^=card_" + group.replace("_","") + "]").forEach(function(c){c.classList.remove("selected");});
+  document.querySelectorAll(".plan-card").forEach(function(c){
+    var inp = c.querySelector("input[type=radio]");
+    if(inp && inp.name === group) c.classList.remove("selected");
+  });
+  el.classList.add("selected");
+  maxCompliance = plan === "BASIC" ? 20 : plan === "STANDARD" ? 50 : 9999;
+  document.getElementById("planLimitNote").textContent = plan === "PREMIUM" ? "(Unlimited — Ascendia CompTrack PREMIUM)" : "(Up to " + maxCompliance + " — " + plan + " plan)";
+}
+
+function addComplianceItem(preset) {
+  if(maxCompliance !== 9999 && complianceCount >= maxCompliance) {
+    document.getElementById("complianceLimitNote").textContent = "Limit reached for your plan (" + maxCompliance + " items). Upgrade to PREMIUM for unlimited.";
+    return;
+  }
+  document.getElementById("complianceLimitNote").textContent = "";
+  var idx = complianceCount;
+  complianceCount++;
+  var presetName = preset ? preset.name : "";
+  var presetFreq = preset ? preset.freq : "Annually";
+  var html = '<div class="compliance-item" id="ci_' + idx + '">' +
+    '<div class="item-header">' +
+    '<div><label style="font-size:11px;">Compliance Requirement</label>' +
+    '<input type="text" id="ci_name_' + idx + '" value="' + presetName + '" placeholder="e.g. GDPR, CAC Filing, NDPC..."></div>' +
+    '<div><label style="font-size:11px;">Expiry Date</label>' +
+    '<input type="date" id="ci_expiry_' + idx + '"></div>' +
+    '<div><label style="font-size:11px;">Frequency</label>' +
+    '<select id="ci_freq_' + idx + '">' +
+    '<option value="Monthly"' + (presetFreq==="Monthly"?" selected":"") + '>Monthly</option>' +
+    '<option value="Quarterly"' + (presetFreq==="Quarterly"?" selected":"") + '>Quarterly</option>' +
+    '<option value="Annually"' + (presetFreq==="Annually"?" selected":"") + '>Annually</option>' +
+    '<option value="One-time">One-time</option>' +
+    '</select></div>' +
+    '<button class="remove-btn" onclick="removeComplianceItem(' + idx + ')">×</button>' +
+    '</div></div>';
+  document.getElementById("complianceItems").insertAdjacentHTML("beforeend", html);
+  updateComplianceCounter();
+}
+
+function removeComplianceItem(idx) {
+  var el = document.getElementById("ci_" + idx);
+  if(el) { el.remove(); complianceCount = Math.max(0, complianceCount - 1); }
+  updateComplianceCounter();
+}
+
+function updateComplianceCounter() {
+  var items = document.querySelectorAll(".compliance-item");
+  complianceCount = items.length;
+  var note = "";
+  if(maxCompliance !== 9999)
+    note = complianceCount + " / " + maxCompliance + " compliance items used. " + (maxCompliance - complianceCount) + " remaining.";
+  else note = complianceCount + " compliance items added (Unlimited — PREMIUM).";
+  document.getElementById("complianceLimitNote").textContent = note;
+}
+
+function loadPresets() {
+  var country = document.getElementById("country").value;
+  var presets = country === "Nigeria" ? COMPLIANCE_PRESETS["Nigeria"] : COMPLIANCE_PRESETS["International"];
+  var allowed = maxCompliance === 9999 ? presets.length : Math.min(presets.length, maxCompliance);
+  document.getElementById("complianceItems").innerHTML = "";
+  complianceCount = 0;
+  for(var i = 0; i < allowed; i++) { addComplianceItem(presets[i]); }
+}
+
+function goStep(from, to) {
+  if(to > from && !validateStep(from)) return;
+  if(to === 3) { loadPresets(); }
+  document.getElementById("step" + from).classList.remove("active");
+  document.getElementById("step" + to).classList.add("active");
+  currentStep = to;
+  updateProgress(to);
+  window.scrollTo(0, 0);
+}
+
+function updateProgress(step) {
+  for(var i = 1; i <= 3; i++) {
+    var el = document.getElementById("ps" + i);
+    if(!el) continue;
+    el.className = "progress-step" + (i < step ? " done" : i === step ? " active" : "");
+  }
+}
+
+function validateStep(step) {
+  var ok = true;
+  function err(id, show) {
+    var el = document.getElementById("err_" + id);
+    if(el) el.style.display = show ? "block" : "none";
+    if(show) ok = false;
+  }
+  if(step === 1) {
+    var name = document.getElementById("clientName").value.trim();
+    var email = document.getElementById("email").value.trim();
+    var phone = document.getElementById("phone").value.trim();
+    var country = document.getElementById("country").value;
+    err("clientName", !name);
+    err("email", !email || email.indexOf("@") === -1);
+    err("phone", !phone || phone.length < 7);
+    err("country", !country);
+  } else if(step === 2) {
+    var company = document.getElementById("companyName").value.trim();
+    var industry = document.getElementById("industry").value;
+    err("companyName", !company);
+    err("industry", !industry);
+    var country2 = document.getElementById("country").value;
+    if(country2 === "Nigeria") { err("planNGN", !selectedPlan); }
+    else { err("planUSD", !selectedPlan); }
+    if(!selectedPlan) ok = false;
+  }
+  return ok;
+}
+
+function collectComplianceItems() {
+  var items = [];
+  document.querySelectorAll(".compliance-item").forEach(function(el) {
+    var nameEl = el.querySelector("input[type=text]");
+    var expiryEl = el.querySelector("input[type=date]");
+    var freqEl = el.querySelector("select");
+    if(nameEl && nameEl.value.trim()) {
+      items.push({
+        name: nameEl.value.trim(),
+        expiry: expiryEl ? expiryEl.value : "",
+        frequency: freqEl ? freqEl.value : "Annually"
+      });
+    }
+  });
+  return items;
+}
+
+function submitForm() {
+  var btn = document.getElementById("submitBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Submitting...';
+
+  var payload = {
+    clientName: document.getElementById("clientName").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
+    country: document.getElementById("country").value,
+    companyName: document.getElementById("companyName").value.trim(),
+    industry: document.getElementById("industry").value,
+    plan: selectedPlan,
+    leadSource: document.getElementById("leadSource").value,
+    notes: document.getElementById("notes").value.trim(),
+    complianceItems: JSON.stringify(collectComplianceItems())
+  };
+
+  fetch(WEBAPP_URL, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if(data.success) {
+      document.getElementById("step3").classList.remove("active");
+      document.getElementById("stepSuccess").classList.add("active");
+      document.getElementById("progressBar").style.display = "none";
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = "🚀 Submit Application";
+      alert("Submission error: " + (data.error || "Unknown error. Please try again."));
+    }
+  })
+  .catch(function(err) {
+    // CORS fallback — redirect with params
+    btn.disabled = false;
+    btn.innerHTML = "🚀 Submit Application";
+    submitViaRedirect(payload);
+  });
+}
+
+function submitViaRedirect(payload) {
+  var form = document.createElement("form");
+  form.method = "POST";
+  form.action = WEBAPP_URL;
+  form.target = "_blank";
+  Object.keys(payload).forEach(function(k) {
+    var inp = document.createElement("input");
+    inp.type = "hidden"; inp.name = k; inp.value = payload[k];
+    form.appendChild(inp);
+  });
+  document.body.appendChild(form);
+  form.submit();
+  setTimeout(function(){
+    document.getElementById("step3").classList.remove("active");
+    document.getElementById("stepSuccess").classList.add("active");
+    document.getElementById("progressBar").style.display = "none";
+  }, 1500);
+}
+</script>
+</body>
+</html>
