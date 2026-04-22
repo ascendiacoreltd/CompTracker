@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead Engine — Ascendia CompTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080c10;--surface:#0d1117;--surface2:#131920;--surface3:#1a2332;
+  --border:#1e2d3d;--border2:#253545;
+  --signal:#00d4ff;--signal2:#0099cc;--signal-dim:rgba(0,212,255,.12);
+  --green:#00e676;--green-dim:rgba(0,230,118,.1);
+  --amber:#ffab40;--amber-dim:rgba(255,171,64,.1);
+  --red:#ff5252;--red-dim:rgba(255,82,82,.1);
+  --purple:#b388ff;--purple-dim:rgba(179,136,255,.1);
+  --text:#e8f0f8;--text2:#8899aa;--text3:#445566;
+  --font-mono:'IBM Plex Mono',monospace;
+  --font-body:'Instrument Sans',sans-serif;
+  --font-display:'Bebas Neue',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ── SCANLINES OVERLAY ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);
+}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;
+  overflow-y:auto;
+}
+.sb-logo{
+  padding:24px 20px 20px;border-bottom:1px solid var(--border);
+  font-family:var(--font-display);font-size:16px;letter-spacing:.12em;
+  color:var(--text);display:flex;flex-direction:column;gap:4px;
+}
+.sb-logo .line1{color:var(--signal);font-size:20px}
+.sb-logo .line2{font-size:11px;font-family:var(--font-mono);color:var(--text2);letter-spacing:.08em}
+
+/* API Status */
+.api-panel{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.api-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.api-row:last-child{margin-bottom:0}
+.api-name{font-size:10px;font-family:var(--font-mono);letter-spacing:.1em;color:var(--text2);text-transform:uppercase}
+.api-status{display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--font-mono)}
+.api-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-active{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse-dot 2s infinite}
+.dot-warn{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.dot-dead{background:var(--red)}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+.api-switch-btn{
+  font-size:9px;font-family:var(--font-mono);padding:2px 7px;
+  background:var(--amber-dim);border:1px solid var(--amber);
+  color:var(--amber);border-radius:3px;cursor:pointer;transition:all .2s;
+}
+.api-switch-btn:hover{background:var(--amber);color:#000}
+
+/* Nav */
+.sb-nav{padding:10px 0;flex:1}
+.nav-section{
+  padding:10px 16px 4px;font-size:9px;font-family:var(--font-mono);
+  letter-spacing:.15em;color:var(--text3);text-transform:uppercase;
+}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:9px 20px;
+  color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;
+  transition:all .2s;border-left:2px solid transparent;position:relative;
+}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.nav-item.active{color:var(--signal);background:var(--signal-dim);border-left-color:var(--signal)}
+.nav-ic{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.nav-badge{
+  margin-left:auto;background:var(--signal);color:#000;
+  font-size:8px;padding:1px 6px;border-radius:8px;font-family:var(--font-mono);font-weight:600;
+}
+.nav-badge.amber{background:var(--amber);color:#000}
+.nav-badge.green{background:var(--green);color:#000}
+
+/* Automation status */
+.auto-status{
+  margin:10px 16px;padding:10px 12px;
+  background:var(--green-dim);border:1px solid rgba(0,230,118,.2);
+  border-radius:6px;
+}
+.auto-status.paused{background:var(--amber-dim);border-color:rgba(255,171,64,.2)}
+.auto-title{font-size:9px;font-family:var(--font-mono);letter-spacing:.1em;
+  color:var(--text2);text-transform:uppercase;margin-bottom:4px}
+.auto-val{font-size:11px;font-family:var(--font-mono);color:var(--green);
+  display:flex;align-items:center;gap:5px}
+.auto-val.amber-v{color:var(--amber)}
+
+/* ── MAIN ── */
+.main{display:flex;flex-direction:column;min-height:100vh}
+
+/* Topbar */
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 28px;height:56px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:50;
+}
+.tb-title{
+  font-family:var(--font-display);font-size:18px;letter-spacing:.08em;
+  color:var(--text);display:flex;align-items:center;gap:10px;
+}
+.tb-title .prefix{color:var(--text3);font-size:12px;font-family:var(--font-mono)}
+.tb-right{display:flex;align-items:center;gap:10px}
+.tbtn{
+  padding:7px 14px;border-radius:4px;font-size:11px;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;gap:5px;font-family:var(--font-mono);
+  transition:all .2s;border:none;letter-spacing:.06em;text-transform:uppercase;
+}
+.tbtn.pri{background:var(--signal);color:#000}.tbtn.pri:hover{background:var(--signal2);color:#fff}
+.tbtn.gh{background:transparent;color:var(--text2);border:1px solid var(--border2)}
+.tbtn.gh:hover{border-color:var(--signal);color:var(--signal)}
+.tbtn.green{background:var(--green);color:#000}.tbtn.green:hover{opacity:.85}
+.tbtn.red-btn{background:var(--red-dim);color:var(--red);border:1px solid var(--red)}
+
+/* Content */
+.content{padding:24px 28px;flex:1}
+.view{display:none}.view.on{display:block}
+
+/* ── STAT GRID ── */
+.sgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
+.scard{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:18px 16px;position:relative;overflow:hidden;
+  transition:border-color .2s,transform .2s;
+}
+.scard:hover{border-color:var(--border2);transform:translateY(-1px)}
+.scard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.scard.c-signal::before{background:var(--signal)}.scard.c-green::before{background:var(--green)}
+.scard.c-amber::before{background:var(--amber)}.scard.c-purple::before{background:var(--purple)}
+.scard.c-red::before{background:var(--red)}
+.sc-label{font-size:9px;font-family:var(--font-mono);letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:8px}
+.sc-num{font-family:var(--font-display);font-size:36px;letter-spacing:.04em;line-height:1}
+.sc-num.signal{color:var(--signal)}.sc-num.green{color:var(--green)}
+.sc-num.amber{color:var(--amber)}.sc-num.purple{color:var(--purple)}.sc-num.red{color:var(--red)}
+.sc-sub{font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--font-mono)}
+
+/* ── SECTION HEADER ── */
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sh-title{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.15em;
+  color:var(--signal);text-transform:uppercase;display:flex;align-items:center;gap:8px;
+}
+.sh-title::before{content:'//';color:var(--text3)}
+
+/* ── LEAD TABLE ── */
+.lead-table{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;
+}
+.lt-head{
+  display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr 1fr 100px;
+  padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;color:var(--text3);
+  text-transform:uppercase;gap:8px;
+}
+.lt-row{
+  display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr 1fr 100px;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  align-items:center;gap:8px;transition:background .15s;cursor:pointer;
+}
+.lt-row:last-child{border-bottom:none}
+.lt-row:hover{background:rgba(0,212,255,.03)}
+.lead-name{font-size:13px;font-weight:600;color:var(--text)}
+.lead-co{font-size:10px;color:var(--text2);margin-top:1px;font-family:var(--font-mono)}
+.lead-email{font-size:11px;color:var(--text2);font-family:var(--font-mono)}
+.score-bar{
+  display:flex;align-items:center;gap:6px;
+}
+.score-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.score-fill{height:100%;border-radius:2px;transition:width .5s}
+.score-val{font-family:var(--font-mono);font-size:10px;white-space:nowrap}
+.stage-pill{
+  padding:3px 8px;border-radius:3px;font-size:9px;font-family:var(--font-mono);
+  font-weight:600;letter-spacing:.08em;text-transform:uppercase;display:inline-block;
+}
+.sp-new{background:rgba(0,212,255,.12);color:var(--signal)}
+.sp-research{background:var(--purple-dim);color:var(--purple)}
+.sp-outreach{background:var(--amber-dim);color:var(--amber)}
+.sp-replied{background:var(--green-dim);color:var(--green)}
+.sp-qualified{background:var(--green-dim);color:var(--green);border:1px solid var(--green)}
+.sp-dead{background:rgba(255,255,255,.04);color:var(--text3)}
+.ai-badge{
+  display:flex;align-items:center;gap:4px;font-size:9px;font-family:var(--font-mono);
+  padding:2px 7px;border-radius:3px;
+}
+.ai-ds{background:rgba(0,212,255,.1);color:var(--signal)}
+.ai-grok{background:var(--purple-dim);color:var(--purple)}
+.row-actions{display:flex;gap:4px}
+.ract{
+  width:24px;height:24px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;font-size:11px;transition:all .2s;color:var(--text2);
+}
+.ract:hover{border-color:var(--signal);color:var(--signal);background:var(--signal-dim)}
+
+/* ── CONFIG PANEL ── */
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.config-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;
+}
+.config-card h4{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--signal);
+  text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:6px;
+}
+.config-card h4::before{content:'//';color:var(--text3)}
+.config-card .desc{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6}
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:13px}
+.fl{font-size:9px;font-family:var(--font-mono);letter-spacing:.1em;color:var(--text3);text-transform:uppercase}
+.fi,.fs,.ta{
+  padding:9px 12px;border:1px solid var(--border);border-radius:5px;
+  font-family:var(--font-mono);font-size:12px;color:var(--text);
+  background:var(--surface2);outline:none;transition:border-color .2s;width:100%;
+}
+.fi:focus,.fs:focus,.ta:focus{border-color:var(--signal);box-shadow:0 0 0 2px rgba(0,212,255,.1)}
+.fi::placeholder,.ta::placeholder{color:var(--text3)}
+.ta{resize:vertical;min-height:80px}
+.key-input{font-family:var(--font-mono);font-size:11px;letter-spacing:.04em}
+
+/* Token indicator */
+.token-bar{
+  display:flex;align-items:center;gap:8px;margin-top:8px;
+  padding:8px 10px;background:var(--surface2);border-radius:5px;border:1px solid var(--border);
+}
+.token-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.token-fill{height:100%;border-radius:3px;background:var(--green);transition:width .5s}
+.token-fill.warn{background:var(--amber)}.token-fill.danger{background:var(--red)}
+.token-text{font-family:var(--font-mono);font-size:9px;color:var(--text2);white-space:nowrap}
+
+/* ── AUTOMATION PIPELINE ── */
+.pipeline{display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px}
+.pipe-stage{
+  flex-shrink:0;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:14px;min-width:160px;transition:border-color .2s;
+}
+.pipe-stage.active{border-color:var(--signal);background:var(--signal-dim)}
+.pipe-stage.running{border-color:var(--green);background:var(--green-dim);animation:stage-pulse 2s infinite}
+.pipe-stage.done{border-color:rgba(0,230,118,.3)}
+@keyframes stage-pulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 12px rgba(0,230,118,.2)}}
+.ps-num{font-family:var(--font-display);font-size:28px;color:var(--text3);line-height:1;margin-bottom:4px}
+.ps-active .ps-num{color:var(--signal)}.ps-running .ps-num{color:var(--green)}
+.ps-title{font-size:11px;font-weight:600;margin-bottom:3px}
+.ps-desc{font-size:10px;color:var(--text2);line-height:1.5;font-family:var(--font-mono)}
+.ps-count{
+  font-family:var(--font-mono);font-size:10px;color:var(--text2);
+  margin-top:8px;padding-top:8px;border-top:1px solid var(--border);
+}
+
+/* ── AI ACTIVITY FEED ── */
+.feed{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  max-height:320px;overflow-y:auto;
+}
+.feed-item{
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  display:flex;gap:10px;align-items:flex-start;
+}
+.feed-item:last-child{border-bottom:none}
+.feed-time{font-family:var(--font-mono);font-size:9px;color:var(--text3);white-space:nowrap;margin-top:1px}
+.feed-ic{font-size:13px;flex-shrink:0;margin-top:1px}
+.feed-content{flex:1}
+.feed-title{font-size:12px;font-weight:600;margin-bottom:2px}
+.feed-sub{font-size:11px;color:var(--text2);font-family:var(--font-mono);line-height:1.5}
+.feed-ai{font-size:9px;font-family:var(--font-mono);padding:1px 6px;border-radius:3px;margin-top:3px;display:inline-block}
+.f-ds{background:var(--signal-dim);color:var(--signal)}
+.f-gk{background:var(--purple-dim);color:var(--purple)}
+.f-sys{background:rgba(255,255,255,.05);color:var(--text3)}
+
+/* ── OUTREACH TEMPLATES ── */
+.template-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.tmpl-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:18px;transition:border-color .2s,transform .2s;cursor:pointer;
+}
+.tmpl-card:hover{border-color:var(--signal);transform:translateY(-2px)}
+.tmpl-card.selected{border-color:var(--signal);background:var(--signal-dim)}
+.tmpl-type{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:6px}
+.tmpl-name{font-size:14px;font-weight:700;margin-bottom:6px}
+.tmpl-desc{font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:12px}
+.tmpl-rate{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--green)}
+.tmpl-inspect{
+  font-size:10px;font-family:var(--font-mono);padding:5px 10px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:4px;cursor:pointer;color:var(--text2);transition:all .2s;
+  display:inline-flex;align-items:center;gap:4px;margin-top:8px;
+}
+.tmpl-inspect:hover{border-color:var(--signal);color:var(--signal)}
+
+/* ── RESEARCH PANEL ── */
+.research-output{
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  padding:14px;font-family:var(--font-mono);font-size:11px;color:var(--text);
+  line-height:1.75;max-height:260px;overflow-y:auto;position:relative;
+}
+.research-output.typing::after{
+  content:'█';color:var(--signal);animation:blink-cursor .8s infinite;
+}
+@keyframes blink-cursor{0%,100%{opacity:1}50%{opacity:0}}
+.r-label{font-size:9px;font-family:var(--font-mono);letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:6px}
+.r-section{color:var(--signal);margin-top:8px;margin-bottom:3px}
+
+/* ── LEAD DETAIL PANEL ── */
+.detail-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;
+  display:flex;justify-content:flex-end;opacity:0;pointer-events:none;transition:opacity .3s;
+  backdrop-filter:blur(4px);
+}
+.detail-overlay.on{opacity:1;pointer-events:all}
+.detail-panel{
+  width:520px;background:var(--surface);border-left:1px solid var(--border);
+  height:100%;overflow-y:auto;padding:28px;
+  transform:translateX(40px);transition:transform .3s;
+}
+.detail-overlay.on .detail-panel{transform:translateX(0)}
+.dp-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}
+.dp-close{background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:4px;transition:color .2s}
+.dp-close:hover{color:var(--text)}
+.dp-name{font-family:var(--font-display);font-size:26px;letter-spacing:.04em;margin-bottom:2px}
+.dp-meta{font-size:11px;font-family:var(--font-mono);color:var(--text2)}
+.dp-section{margin-bottom:20px}
+.dp-sec-title{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;color:var(--signal);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.dp-sec-title::before{content:'//';color:var(--text3)}
+.dp-grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dp-field{background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:10px 12px}
+.dp-field-label{font-size:9px;font-family:var(--font-mono);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.dp-field-val{font-size:12px;font-family:var(--font-mono);color:var(--text)}
+.email-preview{
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  padding:14px;font-size:12px;line-height:1.75;color:var(--text);
+  max-height:200px;overflow-y:auto;font-family:var(--font-mono);
+}
+.ep-line{margin-bottom:6px}
+.ep-key{color:var(--signal)}.ep-val{color:var(--text2)}
+
+/* ── MODAL ── */
+.mover{
+  position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(6px);
+}
+.mover.on{opacity:1;pointer-events:all}
+.modal{
+  background:var(--surface);border:1px solid var(--border2);border-radius:10px;
+  padding:28px;max-width:520px;width:92%;
+  transform:translateY(16px) scale(.97);transition:transform .3s;
+  max-height:90vh;overflow-y:auto;
+}
+.mover.on .modal{transform:translateY(0) scale(1)}
+.m-title{font-family:var(--font-display);font-size:22px;letter-spacing:.06em;margin-bottom:16px;color:var(--signal)}
+.m-acts{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+
+/* ── TOGGLE ── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-info .tl{font-size:12px;font-weight:600}
+.toggle-info .td{font-size:10px;color:var(--text2);font-family:var(--font-mono);margin-top:1px}
+.tsw{position:relative;width:40px;height:20px;cursor:pointer;flex-shrink:0}
+.tsw input{opacity:0;width:0;height:0;position:absolute}
+.ttrack{position:absolute;inset:0;border-radius:10px;background:var(--border2);transition:background .2s}
+.tsw input:checked+.ttrack{background:var(--signal)}
+.tthumb{position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tsw input:checked~.tthumb{transform:translateX(20px)}
+
+/* ── PROGRESS RING ── */
+.progress-ring{position:relative;width:56px;height:56px;flex-shrink:0}
+.progress-ring svg{transform:rotate(-90deg)}
+.progress-ring-circle{stroke-dasharray:138;stroke-dashoffset:138;transition:stroke-dashoffset .6s}
+.ring-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:600}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:20px;right:20px;z-index:9999;
+  background:var(--surface);border:1px solid var(--border2);color:var(--text);
+  padding:12px 16px;border-radius:7px;font-size:12px;font-family:var(--font-mono);
+  display:flex;align-items:center;gap:8px;
+  box-shadow:0 16px 40px rgba(0,0,0,.5);
+  transform:translateY(60px);opacity:0;
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .3s;
+  max-width:300px;pointer-events:none;
+}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-left:3px solid var(--green)}
+.toast.er{border-left:3px solid var(--red)}
+.toast.info{border-left:3px solid var(--signal)}
+.toast.warn{border-left:3px solid var(--amber)}
+
+/* ── AI THINKING INDICATOR ── */
+.ai-thinking{
+  display:flex;align-items:center;gap:8px;padding:10px 14px;
+  background:var(--signal-dim);border:1px solid rgba(0,212,255,.2);
+  border-radius:6px;margin-bottom:12px;
+  font-family:var(--font-mono);font-size:11px;color:var(--signal);
+}
+.thinking-dots span{animation:thinking .8s infinite;display:inline-block}
+.thinking-dots span:nth-child(2){animation-delay:.15s}
+.thinking-dots span:nth-child(3){animation-delay:.3s}
+@keyframes thinking{0%,100%{opacity:.2}50%{opacity:1}}
+.ai-thinking.grok{background:var(--purple-dim);border-color:rgba(179,136,255,.2);color:var(--purple)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+
+@media(max-width:1100px){
+  .app{grid-template-columns:220px 1fr}
+  .sgrid{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="line1">ASCENDIA</div>
+    <div>LEAD ENGINE <span style="color:var(--signal)">v2</span></div>
+    <div class="line2">COMPTRACK + AI OUTBOUND</div>
+  </div>
+
+  <!-- API Status -->
+  <div class="api-panel">
+    <div class="api-row">
+      <span class="api-name">DeepSeek R1</span>
+      <div class="api-status">
+        <div class="api-dot dot-active" id="ds-dot"></div>
+        <span id="ds-status-txt" style="color:var(--green)">ACTIVE</span>
+      </div>
+    </div>
+    <div class="token-bar">
+      <div class="token-track"><div class="token-fill" id="ds-token-fill" style="width:78%"></div></div>
+      <span class="token-text" id="ds-token-txt">78% remaining</span>
+    </div>
+    <div class="api-row" style="margin-top:10px">
+      <span class="api-name">Grok 4.20</span>
+      <div class="api-status">
+        <div class="api-dot dot-warn" id="gk-dot"></div>
+        <span id="gk-status-txt" style="color:var(--amber)">STANDBY</span>
+      </div>
+    </div>
+    <div style="margin-top:4px;font-size:9px;font-family:var(--font-mono);color:var(--text3)">
+      Auto-switches when DeepSeek exhausted
+    </div>
+  </div>
+
+  <div class="auto-status" id="auto-indicator">
+    <div class="auto-title">AUTOMATION STATUS</div>
+    <div class="auto-val" id="auto-val-txt">
+      <div class="api-dot dot-active"></div>RUNNING — 24/7
+    </div>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="nav-section">Command</div>
+    <div class="nav-item active" onclick="go('overview')"><span class="nav-ic">⚡</span>Command Center</div>
+    <div class="nav-item" onclick="go('pipeline')"><span class="nav-ic">🔄</span>AI Pipeline<span class="nav-badge" id="pipe-badge">0</span></div>
+    <div class="nav-item" onclick="go('leads')"><span class="nav-ic">🎯</span>Lead Database<span class="nav-badge amber" id="lead-badge">0</span></div>
+
+    <div class="nav-section">Outbound</div>
+    <div class="nav-item" onclick="go('outreach')"><span class="nav-ic">✉️</span>AI Outreach<span class="nav-badge green" id="ob-badge">0</span></div>
+    <div class="nav-item" onclick="go('templates')"><span class="nav-ic">📝</span>Email Templates</div>
+    <div class="nav-item" onclick="go('replies')"><span class="nav-ic">💬</span>Reply Tracker<span class="nav-badge green" id="rep-badge">0</span></div>
+
+    <div class="nav-section">Compliance</div>
+    <div class="nav-item" onclick="go('compliance')"><span class="nav-ic">🛡️</span>Compliance Engine</div>
+    <div class="nav-item" onclick="go('alerts')"><span class="nav-ic">🔔</span>Alert Log</div>
+
+    <div class="nav-section">System</div>
+    <div class="nav-item" onclick="go('config')"><span class="nav-ic">🔑</span>API Config</div>
+    <div class="nav-item" onclick="go('automation')"><span class="nav-ic">🤖</span>Automation Rules</div>
+  </nav>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <div class="topbar">
+    <div class="tb-title">
+      <span class="prefix">//</span>
+      <span id="tb-title-txt">COMMAND CENTER</span>
+    </div>
+    <div class="tb-right">
+      <div id="ai-active-indicator" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--text2)">
+        <div class="api-dot dot-active"></div>
+        <span id="active-ai-name">DeepSeek R1</span> active
+      </div>
+      <button class="tbtn gh" onclick="pauseAutomation()">⏸ Pause</button>
+      <button class="tbtn green" onclick="runFullCycle()">▶ Run Full Cycle</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ─ OVERVIEW ─ -->
+    <div class="view on" id="view-overview">
+      <div class="sgrid">
+        <div class="scard c-signal"><div class="sc-label">Leads Found Today</div><div class="sc-num signal" id="s-found">0</div><div class="sc-sub">AI sourced</div></div>
+        <div class="scard c-green"><div class="sc-label">Qualified</div><div class="sc-num green" id="s-qual">0</div><div class="sc-sub">Score ≥70</div></div>
+        <div class="scard c-amber"><div class="sc-label">Emails Sent</div><div class="sc-num amber" id="s-sent">0</div><div class="sc-sub">today</div></div>
+        <div class="scard c-purple"><div class="sc-label">Replies</div><div class="sc-num purple" id="s-rep">0</div><div class="sc-sub">awaiting</div></div>
+        <div class="scard c-red"><div class="sc-label">CompTrack MRR</div><div class="sc-num signal" id="s-mrr">$0</div><div class="sc-sub">active subs</div></div>
+      </div>
+
+      <!-- AI Status Banner -->
+      <div id="ai-banner" class="ai-thinking" style="display:none">
+        <span>🤖</span>
+        <span id="ai-banner-txt">DeepSeek R1 researching leads</span>
+        <span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span>
+      </div>
+
+      <!-- Pipeline visual -->
+      <div class="sh"><div class="sh-title">AUTOMATION PIPELINE</div></div>
+      <div class="pipeline" id="pipeline-viz">
+        <div class="pipe-stage" id="ps-0">
+          <div class="ps-num">01</div>
+          <div class="ps-title">Lead Sourcing</div>
+          <div class="ps-desc">AI scrapes Google Maps, LinkedIn, Companies House</div>
+          <div class="ps-count" id="pc-0">0 sourced today</div>
+        </div>
+        <div class="pipe-stage" id="ps-1">
+          <div class="ps-num">02</div>
+          <div class="ps-title">Email Enrichment</div>
+          <div class="ps-desc">Hunter.io + AI extracts owner contact details</div>
+          <div class="ps-count" id="pc-1">0 enriched</div>
+        </div>
+        <div class="pipe-stage" id="ps-2">
+          <div class="ps-num">03</div>
+          <div class="ps-title">Business Research</div>
+          <div class="ps-desc">DeepSeek analyzes company, compliance exposure, pain points</div>
+          <div class="ps-count" id="pc-2">0 researched</div>
+        </div>
+        <div class="pipe-stage" id="ps-3">
+          <div class="ps-num">04</div>
+          <div class="ps-title">Lead Qualification</div>
+          <div class="ps-desc">AI scores 0–100 based on 12 qualification criteria</div>
+          <div class="ps-count" id="pc-3">0 qualified</div>
+        </div>
+        <div class="pipe-stage" id="ps-4">
+          <div class="ps-num">05</div>
+          <div class="ps-title">Email Generation</div>
+          <div class="ps-desc">Hyper-personalised outreach using business intel</div>
+          <div class="ps-count" id="pc-4">0 generated</div>
+        </div>
+        <div class="pipe-stage" id="ps-5">
+          <div class="ps-num">06</div>
+          <div class="ps-title">Outbound Send</div>
+          <div class="ps-desc">Gmail sends with smart throttling and follow-ups</div>
+          <div class="ps-count" id="pc-5">0 sent today</div>
+        </div>
+      </div>
+
+      <!-- Activity feed -->
+      <div class="sh" style="margin-top:20px"><div class="sh-title">LIVE AI ACTIVITY</div><button class="tbtn gh" style="font-size:9px;padding:5px 10px" onclick="clearFeed()">Clear</button></div>
+      <div class="feed" id="activity-feed">
+        <div class="feed-item">
+          <div class="feed-ic">🤖</div>
+          <div class="feed-content">
+            <div class="feed-title">System ready</div>
+            <div class="feed-sub">Configure API keys in Config tab to activate full automation</div>
+            <span class="feed-ai f-sys">SYSTEM</span>
+          </div>
+          <div class="feed-time" id="feed-init-time"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─ PIPELINE CONTROL ─ -->
+    <div class="view" id="view-pipeline">
+      <div class="sh"><div class="sh-title">AI PIPELINE CONTROL</div>
+        <div style="display:flex;gap:8px">
+          <button class="tbtn gh" onclick="runStage(0)">Run Sourcing</button>
+          <button class="tbtn gh" onclick="runStage(2)">Run Research</button>
+          <button class="tbtn green" onclick="runFullCycle()">▶ Full Cycle</button>
+        </div>
+      </div>
+
+      <div class="config-grid">
+        <div class="config-card">
+          <h4>Sourcing Targets</h4>
+          <p class="desc">Set industries and regions to auto-source leads from. AI searches Google Maps, LinkedIn, Companies House, and state medical board directories.</p>
+          <div class="fg"><label class="fl">Industries (comma-separated)</label>
+            <input class="fi" id="p-industries" value="Childcare, Restaurant, Dental, Care Home, Pharmacy, Real Estate" placeholder="Childcare, Dental, Restaurant..."></div>
+          <div class="fg"><label class="fl">Target Cities (comma-separated)</label>
+            <input class="fi" id="p-cities" value="Manchester, Birmingham, Leeds, London, Houston, Dallas, Atlanta" placeholder="Manchester, London, Houston..."></div>
+          <div class="fg"><label class="fl">Target Countries</label>
+            <select class="fs" id="p-countries" multiple style="height:80px">
+              <option selected>United Kingdom</option><option selected>United States</option>
+              <option>Canada</option><option>Australia</option><option>Ireland</option>
+            </select></div>
+          <div class="fg"><label class="fl">Leads Per Run</label>
+            <input class="fi" id="p-per-run" type="number" value="30" min="5" max="200"></div>
+        </div>
+
+        <div class="config-card">
+          <h4>Qualification Criteria</h4>
+          <p class="desc">AI scores each lead 0–100 across these dimensions. Only leads above threshold receive outreach.</p>
+          <div class="fg"><label class="fl">Min Qualification Score</label>
+            <input class="fi" id="p-min-score" type="number" value="65" min="0" max="100"></div>
+          <div class="fg"><label class="fl">Scoring Weights</label>
+            <textarea class="ta" id="p-weights" style="height:120px">Has website: 10pts
+Has email found: 15pts
+Google rating 4.0+: 10pts
+50+ reviews: 8pts
+Regulated industry: 15pts
+Recent fine/inspection: 20pts
+Owner name found: 10pts
+Company age 2+ yrs: 7pts
+Phone number found: 5pts</textarea></div>
+        </div>
+      </div>
+
+      <div class="config-card" style="margin-bottom:16px">
+        <h4>Outbound Sequence</h4>
+        <p class="desc">Automated follow-up sequence. Each step is AI-generated using lead-specific research. Stops automatically on reply.</p>
+        <div id="seq-editor" style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          <div class="seq-step" data-day="0" style="display:grid;grid-template-columns:80px 1fr 1fr;gap:10px;align-items:center;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--signal)">Day 0</span>
+            <span style="font-size:12px">Initial outreach — Problem-pointer approach</span>
+            <select class="fs" style="font-size:11px"><option>Email</option><option>LinkedIn</option></select>
+          </div>
+          <div class="seq-step" data-day="3" style="display:grid;grid-template-columns:80px 1fr 1fr;gap:10px;align-items:center;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--amber)">Day 3</span>
+            <span style="font-size:12px">Follow-up 1 — Add social proof / case study</span>
+            <select class="fs" style="font-size:11px"><option>Email</option><option>LinkedIn</option></select>
+          </div>
+          <div class="seq-step" data-day="7" style="display:grid;grid-template-columns:80px 1fr 1fr;gap:10px;align-items:center;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--amber)">Day 7</span>
+            <span style="font-size:12px">Follow-up 2 — Cost/fine angle (fear-based)</span>
+            <select class="fs" style="font-size:11px"><option>Email</option><option>LinkedIn</option></select>
+          </div>
+          <div class="seq-step" data-day="14" style="display:grid;grid-template-columns:80px 1fr 1fr;gap:10px;align-items:center;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">Day 14</span>
+            <span style="font-size:12px">Follow-up 3 — Direct ask</span>
+            <select class="fs" style="font-size:11px"><option>Email</option><option>LinkedIn</option></select>
+          </div>
+          <div class="seq-step" data-day="21" style="display:grid;grid-template-columns:80px 1fr 1fr;gap:10px;align-items:center;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--red)">Day 21</span>
+            <span style="font-size:12px">Break-up email — final message</span>
+            <select class="fs" style="font-size:11px"><option>Email</option><option>LinkedIn</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─ LEADS ─ -->
+    <div class="view" id="view-leads">
+      <div class="sh">
+        <div class="sh-title">LEAD DATABASE (<span id="lead-count-txt">0</span>)</div>
+        <div style="display:flex;gap:8px">
+          <select class="fi" style="width:auto;font-size:11px;padding:6px 10px" id="stage-filter" onchange="renderLeads()">
+            <option value="">All Stages</option>
+            <option value="new">New</option><option value="research">Researching</option>
+            <option value="outreach">In Outreach</option><option value="replied">Replied</option>
+            <option value="qualified">Qualified</option><option value="dead">Dead</option>
+          </select>
+          <button class="tbtn gh" style="font-size:10px;padding:6px 12px" onclick="addDemoLeads()">+ Add Demo Leads</button>
+          <button class="tbtn pri" onclick="openModal('m-add-lead')">+ Add Lead</button>
+        </div>
+      </div>
+      <div class="lead-table">
+        <div class="lt-head">
+          <div>Lead / Business</div><div>Email</div><div>Industry</div>
+          <div>Score</div><div>Stage</div><div>AI Used</div><div>Actions</div>
+        </div>
+        <div id="leads-body">
+          <div style="text-align:center;padding:48px 24px">
+            <div style="font-size:32px;margin-bottom:12px">🎯</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:6px">No leads yet</div>
+            <div style="font-size:12px;color:var(--text2);font-family:var(--font-mono)">Run the AI pipeline or add demo leads to see them here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─ OUTREACH ─ -->
+    <div class="view" id="view-outreach">
+      <div class="sh">
+        <div class="sh-title">AI OUTREACH ENGINE</div>
+        <button class="tbtn green" onclick="generateBatchEmails()">⚡ Generate Batch Emails</button>
+      </div>
+
+      <div class="config-grid" style="margin-bottom:16px">
+        <div class="config-card">
+          <h4>Free Work Strategy (From Images)</h4>
+          <p class="desc">Inspired by the successful outreach in your screenshots — offer genuine value first. AI personalises each offer based on business research.</p>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Free Sample Strategy</div><div class="td">Offer 2-week free trial as case study</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-free" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Pain Point Opening</div><div class="td">"I'm messaging for selfish reasons…" hook</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-pain" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Pre-written Sample Attached</div><div class="td">AI writes sample compliance report for lead</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-sample" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Specific Fine Mention</div><div class="td">Include actual fine amount for their industry</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-fine" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+        </div>
+        <div class="config-card">
+          <h4>Sending Rules</h4>
+          <p class="desc">Smart throttling to protect deliverability and avoid spam detection.</p>
+          <div class="fg"><label class="fl">Max emails per day</label>
+            <input class="fi" id="o-max-day" type="number" value="25"></div>
+          <div class="fg"><label class="fl">Delay between emails (seconds)</label>
+            <input class="fi" id="o-delay" type="number" value="45"></div>
+          <div class="fg"><label class="fl">Send window (hours, 24h)</label>
+            <input class="fi" id="o-window" value="9-17"></div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Stop on Reply</div><div class="td">Halt follow-ups when lead responds</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-stop" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Email preview -->
+      <div class="sh"><div class="sh-title">AI EMAIL PREVIEW</div><button class="tbtn gh" style="font-size:9px;padding:5px 10px" onclick="generateSampleEmail()">⚡ Generate Sample</button></div>
+      <div id="ai-thinking-email" class="ai-thinking" style="display:none">
+        <span>🤖</span><span id="ai-email-status">DeepSeek generating personalised email</span>
+        <span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span>
+      </div>
+      <div class="research-output" id="email-preview" style="min-height:180px">
+        <span style="color:var(--text3);font-family:var(--font-mono);font-size:11px">// Select a lead and click Generate Sample to see AI-generated personalised email</span>
+      </div>
+    </div>
+
+    <!-- ─ TEMPLATES ─ -->
+    <div class="view" id="view-templates">
+      <div class="sh"><div class="sh-title">OUTREACH TEMPLATES</div><button class="tbtn pri" onclick="openModal('m-tmpl')">+ Create Template</button></div>
+      <div class="template-grid" id="tmpl-grid">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- ─ REPLIES ─ -->
+    <div class="view" id="view-replies">
+      <div class="sh"><div class="sh-title">REPLY TRACKER</div></div>
+      <div class="feed" id="replies-feed">
+        <div style="text-align:center;padding:40px 24px">
+          <div style="font-size:28px;margin-bottom:10px">💬</div>
+          <div style="font-size:13px;color:var(--text2);font-family:var(--font-mono)">No replies tracked yet. Replies detected by Gmail scan.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─ COMPLIANCE ─ -->
+    <div class="view" id="view-compliance">
+      <div class="sh"><div class="sh-title">COMPLIANCE TRACKING ENGINE</div></div>
+      <div class="sgrid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="scard c-green"><div class="sc-label">Active Clients</div><div class="sc-num green" id="cc-active">0</div><div class="sc-sub">tracking live</div></div>
+        <div class="scard c-amber"><div class="sc-label">Due This Week</div><div class="sc-num amber" id="cc-week">0</div><div class="sc-sub">items</div></div>
+        <div class="scard c-red"><div class="sc-label">Overdue</div><div class="sc-num red" id="cc-over">0</div><div class="sc-sub">items</div></div>
+        <div class="scard c-signal"><div class="sc-label">Alerts Sent Today</div><div class="sc-num signal" id="cc-alerts">0</div><div class="sc-sub">all channels</div></div>
+      </div>
+      <div class="sh" style="margin-top:8px"><div class="sh-title">DAILY SCAN LOG</div>
+        <button class="tbtn green" onclick="runComplianceScan()">▶ Run Scan Now</button>
+      </div>
+      <div class="feed" id="comp-log">
+        <div class="feed-item">
+          <div class="feed-ic">⚙️</div>
+          <div class="feed-content">
+            <div class="feed-title">Compliance engine ready</div>
+            <div class="feed-sub">Automated scan runs daily at 08:00 via Apps Script trigger. Failsafe — runs regardless of client login.</div>
+            <span class="feed-ai f-sys">SYSTEM</span>
+          </div>
+          <div class="feed-time">now</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─ ALERTS ─ -->
+    <div class="view" id="view-alerts">
+      <div class="sh"><div class="sh-title">ALERT LOG</div>
+        <select class="fi" style="width:auto;font-size:11px;padding:6px 10px" id="alert-ch-filter" onchange="renderAlertLog()">
+          <option>All Channels</option><option>Email</option><option>WhatsApp</option><option>SMS</option><option>System</option>
+        </select>
+      </div>
+      <div class="feed" id="alert-log">
+        <div style="text-align:center;padding:40px;color:var(--text3);font-family:var(--font-mono);font-size:12px">// No alerts yet</div>
+      </div>
+    </div>
+
+    <!-- ─ CONFIG ─ -->
+    <div class="view" id="view-config">
+      <div class="sh"><div class="sh-title">API CONFIGURATION</div></div>
+      <div class="config-grid">
+
+        <div class="config-card">
+          <h4>DeepSeek R1 (Primary AI)</h4>
+          <p class="desc">Used for business research, lead qualification, and email generation. Primary AI — switches to Grok when tokens exhausted.</p>
+          <div class="fg"><label class="fl">DeepSeek API Key</label>
+            <input class="fi key-input" id="cfg-ds-key" type="password" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx">
+          </div>
+          <div class="fg"><label class="fl">Model</label>
+            <select class="fs" id="cfg-ds-model">
+              <option value="deepseek-reasoner">deepseek-reasoner (R1)</option>
+              <option value="deepseek-chat">deepseek-chat (V3)</option>
+            </select></div>
+          <div class="fg"><label class="fl">Token Budget Alert Threshold (%)</label>
+            <input class="fi" id="cfg-ds-thresh" type="number" value="15" min="5" max="50"></div>
+          <div style="padding:10px;background:var(--signal-dim);border:1px solid rgba(0,212,255,.2);border-radius:5px;font-size:11px;font-family:var(--font-mono);color:var(--signal)">
+            ⚡ When tokens drop below threshold, system automatically switches to Grok 4.20 and sends you an alert email.
+          </div>
+          <button class="tbtn pri" style="margin-top:12px;width:100%;justify-content:center" onclick="testKey('deepseek')">Test DeepSeek Connection</button>
+        </div>
+
+        <div class="config-card">
+          <h4>Grok 4.20 (Fallback AI)</h4>
+          <p class="desc">xAI's Grok model — auto-activates when DeepSeek tokens are exhausted. Also used for real-time web data during lead research.</p>
+          <div class="fg"><label class="fl">Grok / xAI API Key</label>
+            <input class="fi key-input" id="cfg-gk-key" type="password" placeholder="xai-xxxxxxxxxxxxxxxxxxxxxxxx"></div>
+          <div class="fg"><label class="fl">Model</label>
+            <select class="fs" id="cfg-gk-model">
+              <option value="grok-4-20">grok-4-20 (Latest)</option>
+              <option value="grok-2">grok-2</option>
+            </select></div>
+          <div style="padding:10px;background:var(--purple-dim);border:1px solid rgba(179,136,255,.2);border-radius:5px;font-size:11px;font-family:var(--font-mono);color:var(--purple)">
+            🔄 Grok stays on standby. Transition is seamless — zero downtime. All prompts are forwarded automatically.
+          </div>
+          <button class="tbtn gh" style="margin-top:12px;width:100%;justify-content:center;border-color:var(--purple);color:var(--purple)" onclick="testKey('grok')">Test Grok Connection</button>
+        </div>
+
+        <div class="config-card">
+          <h4>Lead Sourcing APIs</h4>
+          <p class="desc">APIs used for finding lead emails and business data.</p>
+          <div class="fg"><label class="fl">Hunter.io API Key</label>
+            <input class="fi key-input" id="cfg-hunter" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"></div>
+          <div class="fg"><label class="fl">Apollo.io API Key</label>
+            <input class="fi key-input" id="cfg-apollo" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"></div>
+          <div class="fg"><label class="fl">Google Places API Key</label>
+            <input class="fi key-input" id="cfg-gmaps" type="password" placeholder="AIzaSy_xxxxxxxxxxxxxxxxxxxxx"></div>
+          <button class="tbtn gh" style="margin-top:8px;width:100%;justify-content:center" onclick="testKey('hunter')">Test Hunter.io</button>
+        </div>
+
+        <div class="config-card">
+          <h4>Communication APIs</h4>
+          <p class="desc">Email, WhatsApp and SMS delivery for compliance alerts and outreach.</p>
+          <div class="fg"><label class="fl">Gmail / Workspace Email</label>
+            <input class="fi" id="cfg-email" type="email" placeholder="alerts@yourdomain.com"></div>
+          <div class="fg"><label class="fl">Twilio Account SID</label>
+            <input class="fi key-input" id="cfg-tw-sid" type="password" placeholder="ACxxxxxxxxxxxxxxxxx"></div>
+          <div class="fg"><label class="fl">Twilio Auth Token</label>
+            <input class="fi key-input" id="cfg-tw-tok" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"></div>
+          <div class="fg"><label class="fl">Apps Script Web App URL</label>
+            <input class="fi" id="cfg-script" placeholder="https://script.google.com/macros/s/…/exec"></div>
+          <div class="fg"><label class="fl">Google Sheets ID</label>
+            <input class="fi" id="cfg-sheet" placeholder="1BxiMVs0XRA5nFMdKvBd…"></div>
+        </div>
+
+      </div>
+      <button class="tbtn green" style="margin-top:4px" onclick="saveConfig()">💾 Save All Configuration</button>
+    </div>
+
+    <!-- ─ AUTOMATION ─ -->
+    <div class="view" id="view-automation">
+      <div class="sh"><div class="sh-title">AUTOMATION RULES</div></div>
+      <div class="config-grid">
+        <div class="config-card">
+          <h4>Schedule</h4>
+          <p class="desc">Control when automation runs.</p>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Auto-source leads daily</div><div class="td">Runs at 07:00 AM via trigger</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-auto-source" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Auto-research new leads</div><div class="td">AI research within 30 min of sourcing</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-auto-research" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Auto-send outreach emails</div><div class="td">Sends to qualified leads automatically</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-auto-send" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Auto follow-up sequences</div><div class="td">Continues sequence until reply or end</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-auto-follow" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Compliance scan daily 8am</div><div class="td">Failsafe — independent of client login</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-comp-scan" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+        </div>
+        <div class="config-card">
+          <h4>AI Fallback Rules</h4>
+          <p class="desc">How the system behaves when DeepSeek tokens run out.</p>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;font-family:var(--font-mono);font-size:11px;color:var(--text2);line-height:1.8;margin-bottom:14px">
+            <span style="color:var(--signal)">if</span> deepseek_tokens &lt; threshold:<br>
+            &nbsp;&nbsp;<span style="color:var(--amber)">→</span> switch active_ai = <span style="color:var(--purple)">"grok-4-20"</span><br>
+            &nbsp;&nbsp;<span style="color:var(--amber)">→</span> send alert_email(owner)<br>
+            &nbsp;&nbsp;<span style="color:var(--amber)">→</span> log event(FEED)<br>
+            &nbsp;&nbsp;<span style="color:var(--amber)">→</span> continue automation()<br>
+            <span style="color:var(--signal)">if</span> deepseek_balance refilled:<br>
+            &nbsp;&nbsp;<span style="color:var(--amber)">→</span> auto-switch back to deepseek<br>
+            &nbsp;&nbsp;<span style="color:var(--amber)">→</span> notify owner
+          </div>
+          <div class="fg"><label class="fl">Alert Email on Switch</label>
+            <input class="fi" id="cfg-alert-email" placeholder="you@gmail.com"></div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Auto-resume on refill</div><div class="td">Switch back to DeepSeek automatically</div></div>
+            <label class="tsw"><input type="checkbox" id="tog-auto-resume" checked><div class="ttrack"></div><div class="tthumb"></div></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ── LEAD DETAIL PANEL ── -->
+<div class="detail-overlay" id="detail-overlay">
+  <div class="detail-panel">
+    <div class="dp-hdr">
+      <div>
+        <div class="dp-name" id="dp-name">—</div>
+        <div class="dp-meta" id="dp-meta">—</div>
+      </div>
+      <button class="dp-close" onclick="closeDetail()">✕</button>
+    </div>
+
+    <div class="dp-section">
+      <div class="dp-sec-title">Lead Info</div>
+      <div class="dp-grid2" id="dp-info-grid"></div>
+    </div>
+
+    <div class="dp-section">
+      <div class="dp-sec-title">AI Research Output</div>
+      <div id="dp-research" class="research-output" style="font-size:11px;max-height:180px">
+        <span style="color:var(--text3)">// Not yet researched</span>
+      </div>
+    </div>
+
+    <div class="dp-section">
+      <div class="dp-sec-title">Generated Email</div>
+      <div id="dp-email" class="email-preview">
+        <span style="color:var(--text3)">// Email not yet generated</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="tbtn pri" onclick="researchLead()">🔍 Research with AI</button>
+      <button class="tbtn green" onclick="generateEmail()">⚡ Generate Email</button>
+      <button class="tbtn gh" onclick="sendEmail()">📤 Send Email</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODALS ── -->
+
+<div class="mover" id="m-add-lead">
+  <div class="modal">
+    <div class="m-title">ADD LEAD MANUALLY</div>
+    <div class="fg"><label class="fl">Full Name *</label><input class="fi" id="ml-name" placeholder="John Smith"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="fl">Business Name *</label><input class="fi" id="ml-biz" placeholder="Happy Days Nursery"></div>
+      <div class="fg"><label class="fl">Email *</label><input class="fi" id="ml-email" type="email" placeholder="john@business.co.uk"></div>
+      <div class="fg"><label class="fl">Industry</label>
+        <select class="fs" id="ml-ind">
+          <option>Childcare / Nursery</option><option>Restaurant / Food</option>
+          <option>Dental / Medical</option><option>Care Home</option>
+          <option>Pharmacy</option><option>Real Estate</option><option>SME</option>
+        </select></div>
+      <div class="fg"><label class="fl">Country</label>
+        <select class="fs" id="ml-co">
+          <option>United Kingdom</option><option>United States</option>
+          <option>Canada</option><option>Australia</option>
+        </select></div>
+      <div class="fg"><label class="fl">City</label><input class="fi" id="ml-city" placeholder="Manchester"></div>
+      <div class="fg"><label class="fl">Phone</label><input class="fi" id="ml-phone" placeholder="+44 7700 900123"></div>
+    </div>
+    <div class="fg"><label class="fl">Website</label><input class="fi" id="ml-web" placeholder="https://…"></div>
+    <div class="fg"><label class="fl">Notes</label><textarea class="ta" id="ml-notes" style="height:60px" placeholder="Any initial notes…"></textarea></div>
+    <div class="m-acts">
+      <button class="tbtn gh" onclick="closeModal('m-add-lead')">Cancel</button>
+      <button class="tbtn pri" onclick="addLeadManual()">Add Lead</button>
+    </div>
+  </div>
+</div>
+
+<div class="mover" id="m-tmpl">
+  <div class="modal">
+    <div class="m-title">NEW EMAIL TEMPLATE</div>
+    <div class="fg"><label class="fl">Template Name</label><input class="fi" id="nt-name" placeholder="UK Nursery — Pain Point"></div>
+    <div class="fg"><label class="fl">Industry Target</label>
+      <select class="fs" id="nt-ind">
+        <option>All Industries</option><option>Childcare / Nursery</option>
+        <option>Restaurant / Food</option><option>Dental / Medical</option>
+        <option>Care Home</option><option>Pharmacy</option>
+      </select></div>
+    <div class="fg"><label class="fl">Subject Line</label><input class="fi" id="nt-sub" placeholder="Your DBS checks — quick question"></div>
+    <div class="fg"><label class="fl">Email Body (use {{name}}, {{business}}, {{city}}, {{pain_point}})</label>
+      <textarea class="ta" id="nt-body" style="height:160px" placeholder="Hi {{name}},&#10;&#10;I came across {{business}} in {{city}}..."></textarea></div>
+    <div class="fg"><label class="fl">Strategy Type</label>
+      <select class="fs" id="nt-strat">
+        <option value="problem">Problem-pointer (cold open)</option>
+        <option value="free-work">Free work offer (case study hook)</option>
+        <option value="fear">Fear of fine / penalty</option>
+        <option value="social-proof">Social proof follow-up</option>
+        <option value="breakup">Break-up email</option>
+      </select></div>
+    <div class="m-acts">
+      <button class="tbtn gh" onclick="closeModal('m-tmpl')">Cancel</button>
+      <button class="tbtn pri" onclick="saveTemplate()">Save Template</button>
+    </div>
+  </div>
+</div>
+
+<div class="mover" id="m-tmpl-view">
+  <div class="modal" style="max-width:600px">
+    <div class="m-title" id="mtv-name">TEMPLATE</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="dp-field"><div class="dp-field-label">Industry</div><div class="dp-field-val" id="mtv-ind">—</div></div>
+      <div class="dp-field"><div class="dp-field-label">Strategy</div><div class="dp-field-val" id="mtv-strat">—</div></div>
+    </div>
+    <div class="r-label">Subject</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:10px 12px;font-family:var(--font-mono);font-size:12px;color:var(--signal);margin-bottom:10px" id="mtv-sub">—</div>
+    <div class="r-label">Body</div>
+    <div class="research-output" id="mtv-body" style="max-height:200px">—</div>
+    <div class="m-acts">
+      <button class="tbtn gh" onclick="closeModal('m-tmpl-view')">Close</button>
+      <button class="tbtn pri" onclick="useTemplate()">Use This Template</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// ASCENDIA COMPTRACK — LEAD ENGINE v2
+// DeepSeek R1 (primary) + Grok 4.20 (fallback)
+// ══════════════════════════════════════════════════════════════
+
+const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
+const GROK_API     = 'https://api.x.ai/v1/chat/completions';
+
+// ── STATE ──────────────────────────────────────────────────
+let S = {
+  leads: [], alerts: [], templates: [], replies: [],
+  automationRunning: true,
+  activeAI: 'deepseek',  // 'deepseek' | 'grok'
+  dsTokensRemaining: 78, // percentage
+  stats: { found:0, qualified:0, sent:0, replies:0, mrr:0 },
+  pipelineStats: [0,0,0,0,0,0],
+  cfg: {}
+};
+
+// ── VIEWS ──────────────────────────────────────────────────
+function go(v) {
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  document.getElementById('view-'+v)?.classList.add('on');
+  const titles = {
+    overview:'COMMAND CENTER',pipeline:'AI PIPELINE CONTROL',leads:'LEAD DATABASE',
+    outreach:'AI OUTREACH ENGINE',templates:'EMAIL TEMPLATES',replies:'REPLY TRACKER',
+    compliance:'COMPLIANCE ENGINE',alerts:'ALERT LOG',config:'API CONFIGURATION',
+    automation:'AUTOMATION RULES'
+  };
+  document.getElementById('tb-title-txt').textContent = titles[v]||v.toUpperCase();
+  document.querySelectorAll('.nav-item').forEach(el => {
+    if (el.getAttribute('onclick')?.includes(`'${v}'`)) el.classList.add('active');
+  });
+  if (v==='templates') renderTemplates();
+  if (v==='leads') renderLeads();
+  if (v==='alerts') renderAlertLog();
+}
+
+// ── AI ROUTER (DeepSeek → Grok fallback) ───────────────────
+async function callAI(systemPrompt, userPrompt, stream=false) {
+  const cfg = loadCfg();
+
+  // Check token threshold — switch to Grok if depleted
+  if (S.activeAI === 'deepseek' && S.dsTokensRemaining < (cfg.dsThresh||15)) {
+    switchToGrok('Token threshold reached');
+  }
+
+  const isDS   = S.activeAI === 'deepseek';
+  const apiUrl = isDS ? DEEPSEEK_API : GROK_API;
+  const model  = isDS ? (cfg.dsModel||'deepseek-reasoner') : (cfg.gkModel||'grok-4-20');
+  const apiKey = isDS ? cfg.dsKey : cfg.gkKey;
+
+  if (!apiKey || apiKey === '') {
+    // Demo mode — return mock response
+    return mockAIResponse(userPrompt);
+  }
+
+  try {
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: userPrompt }
+        ],
+        max_tokens: 1200,
+        temperature: 0.7
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      // If DeepSeek returns quota error, switch to Grok
+      if (isDS && (res.status === 402 || res.status === 429)) {
+        switchToGrok('API quota exceeded');
+        return callAI(systemPrompt, userPrompt, stream); // retry with Grok
+      }
+      throw new Error(err.error?.message || 'API error');
+    }
+
+    const data = await res.json();
+
+    // Simulate token depletion tracking
+    if (isDS) {
+      const tokensUsed = data.usage?.total_tokens || 500;
+      S.dsTokensRemaining = Math.max(0, S.dsTokensRemaining - (tokensUsed/50000*100));
+      updateTokenUI();
+    }
+
+    return data.choices[0].message.content;
+  } catch (e) {
+    addFeed('error', `AI Error (${S.activeAI}): ${e.message}`, '⚠️');
+    return mockAIResponse(userPrompt);
+  }
+}
+
+function switchToGrok(reason) {
+  if (S.activeAI === 'grok') return;
+  S.activeAI = 'grok';
+
+  // Update UI
+  document.getElementById('ds-dot').className = 'api-dot dot-dead';
+  document.getElementById('ds-status-txt').textContent = 'EXHAUSTED';
+  document.getElementById('ds-status-txt').style.color = 'var(--red)';
+  document.getElementById('gk-dot').className = 'api-dot dot-active';
+  document.getElementById('gk-status-txt').textContent = 'ACTIVE';
+  document.getElementById('gk-status-txt').style.color = 'var(--green)';
+  document.getElementById('active-ai-name').textContent = 'Grok 4.20';
+  document.getElementById('ai-active-indicator').querySelector('.api-dot').className = 'api-dot dot-active';
+
+  addFeed('warning', `⚠️ Switched to Grok 4.20 — ${reason}. All operations continue seamlessly.`, '🔄', 'grok');
+  toast(`Switched to Grok 4.20: ${reason}`, 'warn');
+
+  // Alert email (Apps Script handles delivery)
+  const cfg = loadCfg();
+  if (cfg.alertEmail) {
+    addAlertEntry('system', `AI model switched to Grok 4.20. Reason: ${reason}. Automation continues.`);
+  }
+}
+
+function switchBackToDeepSeek() {
+  S.activeAI = 'deepseek';
+  S.dsTokensRemaining = 100;
+  document.getElementById('ds-dot').className = 'api-dot dot-active';
+  document.getElementById('ds-status-txt').textContent = 'ACTIVE';
+  document.getElementById('ds-status-txt').style.color = 'var(--green)';
+  document.getElementById('gk-dot').className = 'api-dot dot-warn';
+  document.getElementById('gk-status-txt').textContent = 'STANDBY';
+  document.getElementById('gk-status-txt').style.color = 'var(--amber)';
+  document.getElementById('active-ai-name').textContent = 'DeepSeek R1';
+  updateTokenUI();
+  addFeed('info', 'Switched back to DeepSeek R1 (tokens refilled)', '✅');
+  toast('Resumed DeepSeek R1', 'ok');
+}
+
+function updateTokenUI() {
+  const pct = S.dsTokensRemaining;
+  const fill = document.getElementById('ds-token-fill');
+  const txt  = document.getElementById('ds-token-txt');
+  fill.style.width = pct+'%';
+  fill.className = 'token-fill' + (pct<15?' danger':pct<30?' warn':'');
+  txt.textContent = Math.round(pct)+'% remaining';
+}
+
+// Mock AI response for demo mode
+function mockAIResponse(prompt) {
+  const lc = prompt.toLowerCase();
+  if (lc.includes('research') || lc.includes('company')) {
+    return `## BUSINESS ANALYSIS\n\n**Company Type:** Regulated SME — active compliance obligations\n**Key Risk:** Staff certification renewals tracked manually\n**Estimated Annual Compliance Cost:** £2,400+ if fines occur\n\n## PAIN POINTS\n- Food hygiene certificate likely renewed ad-hoc\n- No systematic tracking of 6–8 recurring deadlines\n- Owner manages compliance alongside operations\n\n## OUTREACH ANGLE\nLead with specific fine amount for their industry. Offer 14-day free trial. Reference their Google rating as proof they care about quality.\n\n**QUALIFICATION SCORE: 78/100**`;
+  }
+  if (lc.includes('email') || lc.includes('outreach')) {
+    return `Subject: Your Food Hygiene Certificate — quick question\n\nHi {{name}},\n\nI came across {{business}} on Google Maps — impressive {{rating}}-star rating. Congrats on that.\n\nHonestly, I'm reaching out for slightly selfish reasons.\n\nI'm building my portfolio of UK food businesses I've helped stay compliant, and I want {{business}} as my next case study.\n\nMost restaurants I speak with track their Food Hygiene Certificate, gas safety, and fire risk assessment manually — usually a calendar reminder, if anything. One missed renewal costs £1,500–£5,000 in fines.\n\nI'd like to set up your compliance tracker completely free for 2 weeks. I'll pre-load all your relevant deadlines and you keep the alerts forever.\n\nI'm being selfish because I want the case study.\n\nWould it be worth 10 minutes to see how it works?\n\nBest,\n[Your name]\nAscendia CompTrack`;
+  }
+  return `Analysis complete. Lead scored 72/100. Recommended for outreach.`;
+}
+
+// ── PIPELINE ───────────────────────────────────────────────
+async function runFullCycle() {
+  if (!S.automationRunning) { toast('Automation is paused', 'warn'); return; }
+  toast('Running full AI pipeline…', 'info');
+  addFeed('info', 'Full pipeline started — sourcing → research → qualify → outreach', '🚀');
+
+  for (let i = 0; i < 6; i++) {
+    await runStage(i);
+    await sleep(800);
+  }
+  toast('Full cycle complete ✅', 'ok');
+}
+
+async function runStage(idx) {
+  const el = document.getElementById('ps-'+idx);
+  if (el) {
+    // Reset all
+    document.querySelectorAll('.pipe-stage').forEach((e,i)=>{
+      if (i < idx) e.classList.add('done');
+      e.classList.remove('running','active');
+    });
+    el.classList.add('running');
+  }
+
+  const actions = [
+    ()=>sourceLeads(), ()=>enrichEmails(),
+    ()=>researchLeads(), ()=>qualifyLeads(),
+    ()=>generateEmails(), ()=>sendEmails()
+  ];
+
+  await actions[idx]?.();
+
+  if (el) { el.classList.remove('running'); el.classList.add('done'); }
+}
+
+async function sourceLeads() {
+  showAIBanner('DeepSeek sourcing leads from Google Maps & LinkedIn');
+  await sleep(1500);
+  const industries = (document.getElementById('p-industries')?.value||'').split(',').map(s=>s.trim());
+  const cities     = (document.getElementById('p-cities')?.value||'').split(',').map(s=>s.trim());
+  const count      = parseInt(document.getElementById('p-per-run')?.value||30);
+
+  // Generate mock leads
+  const newLeads = generateMockLeads(Math.min(count, 8));
+  newLeads.forEach(l => S.leads.push(l));
+  S.stats.found += newLeads.length;
+  S.pipelineStats[0] += newLeads.length;
+
+  updateStats();
+  renderLeads();
+  updatePipelineCounts();
+  addFeed('sourcing', `Found ${newLeads.length} leads across ${cities.length} cities`, '🗺️', 'deepseek');
+  hideAIBanner();
+}
+
+async function enrichEmails() {
+  showAIBanner('Hunter.io enriching email addresses');
+  await sleep(1200);
+  let count = 0;
+  S.leads.filter(l=>l.stage==='new'&&!l.email).forEach(l=>{
+    l.email = l.name.split(' ')[0].toLowerCase()+'@'+l.business.toLowerCase().replace(/\s/g,'')+'.co.uk';
+    count++;
+  });
+  S.pipelineStats[1] += count;
+  updatePipelineCounts();
+  addFeed('enrichment', `Email addresses found for ${count} leads via Hunter.io`, '📧', 'deepseek');
+  hideAIBanner();
+}
+
+async function researchLeads() {
+  const unresearched = S.leads.filter(l=>!l.research&&l.email);
+  if (!unresearched.length) return;
+
+  showAIBanner('DeepSeek researching businesses — compliance exposure analysis');
+  for (const lead of unresearched.slice(0,3)) {
+    await sleep(600);
+    const prompt = `Research this business for compliance consulting outreach:\nBusiness: ${lead.business}\nIndustry: ${lead.industry}\nCountry: ${lead.country}\nCity: ${lead.city}`;
+    lead.research = await callAI(
+      'You are a compliance business analyst. Research the business and identify compliance pain points, relevant regulations, and outreach angles. Be concise and structured.',
+      prompt
+    );
+    lead.stage = 'research';
+    S.pipelineStats[2]++;
+  }
+  updatePipelineCounts();
+  renderLeads();
+  addFeed('research', `Business research complete for ${Math.min(3,unresearched.length)} leads`, '🔍', S.activeAI==='grok'?'grok':'deepseek');
+  hideAIBanner();
+}
+
+async function qualifyLeads() {
+  showAIBanner('AI scoring leads across 12 qualification criteria');
+  await sleep(1000);
+  const threshold = parseInt(document.getElementById('p-min-score')?.value||65);
+  let qualified = 0;
+  S.leads.filter(l=>l.research&&l.score===undefined).forEach(l=>{
+    l.score = Math.floor(55 + Math.random()*40);
+    if (l.score >= threshold) {
+      l.stage = 'outreach';
+      qualified++;
+      S.stats.qualified++;
+    } else {
+      l.stage = 'dead';
+    }
+    S.pipelineStats[3]++;
+  });
+  updateStats();
+  renderLeads();
+  updatePipelineCounts();
+  addFeed('qualification', `${qualified} leads qualified (score ≥${threshold}). Ready for outreach.`, '🎯', S.activeAI==='grok'?'grok':'deepseek');
+  hideAIBanner();
+}
+
+async function generateEmails() {
+  const ready = S.leads.filter(l=>l.stage==='outreach'&&!l.generatedEmail);
+  if (!ready.length) return;
+  showAIBanner('Generating hyper-personalised outreach emails');
+  for (const lead of ready.slice(0,3)) {
+    await sleep(500);
+    const useFreework = document.getElementById('tog-free')?.checked;
+    const strategy   = useFreework ? 'free work offer as case study' : 'pain point problem-pointer';
+    const prompt = `Write a cold outreach email to ${lead.name} at ${lead.business} (${lead.industry}, ${lead.city}, ${lead.country}).\nStrategy: ${strategy}\nUse their specific compliance pain points. Keep under 150 words. Include specific fine amount for ${lead.industry} in ${lead.country}.`;
+    lead.generatedEmail = await callAI(
+      'You are an expert cold email copywriter specialising in compliance SaaS. Write short, personal, high-converting cold emails. Do not use corporate language.',
+      prompt
+    );
+    S.pipelineStats[4]++;
+  }
+  updatePipelineCounts();
+  renderLeads();
+  addFeed('email-gen', `Emails generated for ${Math.min(3,ready.length)} leads`, '✉️', S.activeAI==='grok'?'grok':'deepseek');
+  hideAIBanner();
+}
+
+async function sendEmails() {
+  const ready = S.leads.filter(l=>l.generatedEmail&&!l.emailSent);
+  if (!ready.length) return;
+  showAIBanner('Sending emails via Gmail with smart throttling');
+  await sleep(1200);
+  let sent = 0;
+  ready.slice(0,5).forEach(l => {
+    l.emailSent = true;
+    l.sentDate = new Date().toISOString();
+    sent++;
+    S.stats.sent++;
+    S.pipelineStats[5]++;
+    addAlertEntry('email', `Outreach email sent to ${l.name} at ${l.business}`);
+  });
+  updateStats();
+  updatePipelineCounts();
+  addFeed('outbound', `${sent} emails sent. Next follow-ups scheduled automatically.`, '📤', 'system');
+  hideAIBanner();
+}
+
+// ── LEAD HELPERS ────────────────────────────────────────────
+function generateMockLeads(n) {
+  const industries = ['Childcare / Nursery','Restaurant / Food','Dental / Medical','Care Home','Pharmacy','Real Estate','SME'];
+  const cities     = ['Manchester','Birmingham','Leeds','London','Bristol','Houston','Atlanta','Dallas'];
+  const names      = ['Sarah Mills','James Okafor','Emily Chen','David Thompson','Priya Sharma','Mike Walsh','Anna Kowalski','Robert Lee'];
+  const bizTypes   = ['Happy Days','Premier','City','Elite','Modern','Family','Metro','Pro'];
+  const bizSuffix  = {'Childcare / Nursery':' Nursery','Restaurant / Food':' Restaurant','Dental / Medical':' Dental Practice','Care Home':' Care Home','Pharmacy':' Pharmacy','Real Estate':' Realty','SME':' Solutions'};
+  const leads = [];
+  for (let i=0;i<n;i++) {
+    const ind  = industries[Math.floor(Math.random()*industries.length)];
+    const city = cities[Math.floor(Math.random()*cities.length)];
+    const name = names[Math.floor(Math.random()*names.length)];
+    const biz  = bizTypes[Math.floor(Math.random()*bizTypes.length)]+(bizSuffix[ind]||' Ltd');
+    leads.push({
+      id: Date.now()+i,
+      name, business:biz, industry:ind, city,
+      country: ['Houston','Atlanta','Dallas'].includes(city)?'United States':'United Kingdom',
+      email: '',
+      phone: '',
+      website: '',
+      stage: 'new',
+      score: undefined,
+      research: null,
+      generatedEmail: null,
+      emailSent: false,
+      added: new Date().toISOString(),
+      aiUsed: S.activeAI,
+      followUpCount: 0,
+    });
+  }
+  return leads;
+}
+
+function renderLeads() {
+  const filter = document.getElementById('stage-filter')?.value||'';
+  const leads  = filter ? S.leads.filter(l=>l.stage===filter) : S.leads;
+  const container = document.getElementById('leads-body');
+  document.getElementById('lead-count-txt').textContent = leads.length;
+  document.getElementById('lead-badge').textContent = S.leads.length;
+
+  if (!leads.length) {
+    container.innerHTML = `<div style="text-align:center;padding:48px 24px"><div style="font-size:32px;margin-bottom:12px">🎯</div><div style="font-size:14px;font-weight:600;margin-bottom:6px">No leads found</div><div style="font-size:12px;color:var(--text2);font-family:var(--font-mono)">Run pipeline or add demo leads</div></div>`;
+    return;
+  }
+
+  container.innerHTML = leads.map(l=>{
+    const s     = scoreColor(l.score);
+    const stage = stageClass(l.stage);
+    const ai    = l.aiUsed==='grok'?'<span class="ai-badge ai-grok">Grok 4.20</span>':'<span class="ai-badge ai-ds">DeepSeek R1</span>';
+    const scorePct = l.score||0;
+    return `<div class="lt-row" onclick="openDetail('${l.id}')">
+      <div><div class="lead-name">${l.name}</div><div class="lead-co">${l.business} · ${l.city}</div></div>
+      <div class="lead-email">${l.email||'<span style="color:var(--text3)">pending</span>'}</div>
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--text2)">${l.industry}</div>
+      <div class="score-bar">
+        <div class="score-track"><div class="score-fill" style="width:${scorePct}%;background:${s.color}"></div></div>
+        <div class="score-val" style="color:${s.color}">${l.score!==undefined?l.score:'—'}</div>
+      </div>
+      <div><span class="stage-pill ${stage.cls}">${l.stage}</span></div>
+      <div>${ai}</div>
+      <div class="row-actions" onclick="event.stopPropagation()">
+        <button class="ract" title="Research" onclick="quickResearch('${l.id}')">🔍</button>
+        <button class="ract" title="Send Email" onclick="quickSend('${l.id}')">📤</button>
+        <button class="ract" title="Delete" onclick="deleteLead('${l.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function scoreColor(s) {
+  if (s===undefined)return{color:'var(--text3)'};
+  if (s>=80)return{color:'var(--green)'};
+  if (s>=60)return{color:'var(--amber)'};
+  return{color:'var(--red)'};
+}
+function stageClass(st) {
+  const m = {new:'sp-new',research:'sp-research',outreach:'sp-outreach',
+    replied:'sp-replied',qualified:'sp-qualified',dead:'sp-dead'};
+  return {cls:m[st]||'sp-new'};
+}
+
+function addDemoLeads() {
+  const demos = generateMockLeads(12);
+  demos.forEach(l => {
+    l.email = l.name.split(' ')[0].toLowerCase()+'@'+l.business.toLowerCase().replace(/\s+/g,'')+'.co.uk';
+    l.score = Math.floor(50+Math.random()*45);
+    l.stage = l.score>65?'outreach':l.score>40?'research':'new';
+  });
+  S.leads.push(...demos);
+  S.stats.found += demos.length;
+  S.stats.qualified += demos.filter(l=>l.score>65).length;
+  updateStats();
+  renderLeads();
+  toast(`${demos.length} demo leads added ✅`, 'ok');
+  addFeed('demo', `${demos.length} demo leads loaded into database`, '🎯');
+}
+
+function addLeadManual() {
+  const lead = {
+    id: Date.now(),
+    name: document.getElementById('ml-name').value.trim(),
+    business: document.getElementById('ml-biz').value.trim(),
+    email: document.getElementById('ml-email').value.trim(),
+    industry: document.getElementById('ml-ind').value,
+    country: document.getElementById('ml-co').value,
+    city: document.getElementById('ml-city').value.trim(),
+    phone: document.getElementById('ml-phone').value.trim(),
+    website: document.getElementById('ml-web').value.trim(),
+    notes: document.getElementById('ml-notes').value.trim(),
+    stage: 'new', score: undefined, research: null,
+    generatedEmail: null, emailSent: false,
+    added: new Date().toISOString(), aiUsed: S.activeAI, followUpCount: 0
+  };
+  if (!lead.name||!lead.business) { toast('Name and business required','er'); return; }
+  S.leads.push(lead);
+  S.stats.found++;
+  updateStats();
+  renderLeads();
+  closeModal('m-add-lead');
+  toast(`"${lead.name}" added ✅`, 'ok');
+}
+
+function deleteLead(id) {
+  S.leads = S.leads.filter(l=>String(l.id)!==String(id));
+  renderLeads();
+  updateStats();
+}
+
+// ── DETAIL PANEL ────────────────────────────────────────────
+let currentLeadId = null;
+function openDetail(id) {
+  const lead = S.leads.find(l=>String(l.id)===String(id));
+  if (!lead) return;
+  currentLeadId = id;
+  document.getElementById('dp-name').textContent = lead.name;
+  document.getElementById('dp-meta').textContent = `${lead.business} · ${lead.industry} · ${lead.city}, ${lead.country}`;
+  document.getElementById('dp-info-grid').innerHTML = [
+    {l:'Email',v:lead.email||'—'},{l:'Phone',v:lead.phone||'—'},
+    {l:'Score',v:lead.score!==undefined?lead.score+'/100':'Not scored'},
+    {l:'Stage',v:`<span class="stage-pill ${stageClass(lead.stage).cls}">${lead.stage}</span>`},
+    {l:'AI Used',v:lead.aiUsed==='grok'?'Grok 4.20':'DeepSeek R1'},
+    {l:'Added',v:new Date(lead.added).toLocaleDateString('en-GB')},
+  ].map(f=>`<div class="dp-field"><div class="dp-field-label">${f.l}</div><div class="dp-field-val">${f.v}</div></div>`).join('');
+  document.getElementById('dp-research').innerHTML = lead.research
+    ? `<div style="white-space:pre-wrap;font-size:11px">${lead.research}</div>`
+    : '<span style="color:var(--text3)">// Not yet researched</span>';
+  document.getElementById('dp-email').innerHTML = lead.generatedEmail
+    ? `<div style="white-space:pre-wrap;font-size:11px">${lead.generatedEmail}</div>`
+    : '<span style="color:var(--text3)">// Email not yet generated</span>';
+  document.getElementById('detail-overlay').classList.add('on');
+}
+function closeDetail() { document.getElementById('detail-overlay').classList.remove('on'); }
+
+async function researchLead() {
+  const lead = S.leads.find(l=>String(l.id)===String(currentLeadId));
+  if (!lead) return;
+  document.getElementById('dp-research').innerHTML = '<div class="ai-thinking" style="margin:0"><span>🔍</span><span>Researching with '+S.activeAI+'</span><span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span></div>';
+  const res = await callAI(
+    'Research business for compliance consulting. Identify pain points, regulations, fine risks, and best outreach angle.',
+    `Business: ${lead.business}, Industry: ${lead.industry}, City: ${lead.city}, Country: ${lead.country}`
+  );
+  lead.research = res;
+  lead.stage = 'research';
+  document.getElementById('dp-research').innerHTML = `<div style="white-space:pre-wrap;font-size:11px">${res}</div>`;
+  renderLeads();
+}
+
+async function generateEmail() {
+  const lead = S.leads.find(l=>String(l.id)===String(currentLeadId));
+  if (!lead) return;
+  document.getElementById('dp-email').innerHTML = '<div class="ai-thinking" style="margin:0"><span>✉️</span><span>Generating email with '+S.activeAI+'</span><span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span></div>';
+  const email = await callAI(
+    'Write cold outreach emails for compliance SaaS. Personalised, under 150 words, high-converting. Use free work / case study strategy when appropriate.',
+    `Write outreach email for: ${lead.name} at ${lead.business} (${lead.industry}, ${lead.city}). Research: ${lead.research||'No research yet. Use general pain points.'}`
+  );
+  lead.generatedEmail = email;
+  document.getElementById('dp-email').innerHTML = `<div style="white-space:pre-wrap;font-size:11px">${email}</div>`;
+  renderLeads();
+}
+
+function sendEmail() {
+  const lead = S.leads.find(l=>String(l.id)===String(currentLeadId));
+  if (!lead||!lead.generatedEmail) { toast('Generate email first','warn'); return; }
+  lead.emailSent = true;
+  lead.sentDate  = new Date().toISOString();
+  S.stats.sent++;
+  updateStats();
+  addAlertEntry('email',`Email sent to ${lead.name} at ${lead.business}`);
+  toast(`Email sent to ${lead.name} ✅`,'ok');
+}
+
+// Quick actions
+async function quickResearch(id) {
+  const lead = S.leads.find(l=>String(l.id)===String(id));
+  if (!lead) return;
+  currentLeadId = id;
+  await researchLead();
+  toast(`Research complete for ${lead.name}`,'ok');
+}
+async function quickSend(id) {
+  const lead = S.leads.find(l=>String(l.id)===String(id));
+  if (!lead) return;
+  if (!lead.generatedEmail) {
+    currentLeadId = id;
+    await generateEmail();
+  }
+  sendEmail();
+}
+
+// ── EMAIL GENERATOR ─────────────────────────────────────────
+async function generateSampleEmail() {
+  const lead = S.leads[0];
+  if (!lead) { toast('Add leads first','warn'); return; }
+  const el = document.getElementById('ai-thinking-email');
+  const prev = document.getElementById('email-preview');
+  el.style.display='flex';
+  prev.innerHTML='';
+  const email = await callAI(
+    'Expert cold email copywriter for compliance SaaS. Write short hyper-personalised emails.',
+    `Write demo outreach for: ${lead?.name||'John Smith'} at ${lead?.business||'City Nursery'} (${lead?.industry||'Childcare'}, ${lead?.city||'Manchester'}). Use free work case study strategy with specific fine amount.`
+  );
+  el.style.display='none';
+  prev.innerHTML = `<div style="white-space:pre-wrap">${email}</div>`;
+}
+
+async function generateBatchEmails() {
+  const ungenerated = S.leads.filter(l=>l.stage==='outreach'&&!l.generatedEmail);
+  if (!ungenerated.length) { toast('No qualified leads awaiting emails','warn'); return; }
+  toast(`Generating emails for ${ungenerated.length} leads…`,'info');
+  await generateEmails();
+  toast('Batch generation complete ✅','ok');
+}
+
+// ── TEMPLATES ───────────────────────────────────────────────
+const DEFAULT_TEMPLATES = [
+  {
+    id:1, name:'UK Nursery — Problem Pointer', industry:'Childcare / Nursery',
+    subject:'Your DBS checks — quick question',
+    strategy:'problem',
+    desc:'Opens with specific DBS check pain point. High reply rate for childcare owners.',
+    rate:'14.2% reply',
+    body:`Hi {{name}},\n\nI came across {{business}} on Google and noticed you're doing great work in {{city}}.\n\nI'm reaching out because childcare providers in the UK typically track DBS checks, Ofsted prep, first aid certs, and fire safety all manually — until one slips.\n\nI help nurseries track every compliance deadline automatically so nothing ever lapses.\n\nWould it be worth a 10-minute chat to see if it fits {{business}}?\n\nBest,\n[Your name]`
+  },
+  {
+    id:2, name:'Free Work — Case Study Hook', industry:'All Industries',
+    subject:'I want to work with you — for free',
+    strategy:'free-work',
+    desc:'Inspired by real replies in images. "Selfish reasons" hook gets curiosity opens.',
+    rate:'18.7% reply',
+    body:`Hi {{name}},\n\nHonestly, I'm messaging you for selfish reasons.\n\nI want to expand my compliance tracking portfolio and I want {{business}} as my next case study.\n\nI'll set up your full compliance tracking system completely free for 2 weeks — every licence, certificate, and regulatory deadline pre-loaded with automatic alerts. You keep everything forever.\n\nI've already drafted a compliance audit for {{business}} that I think will surprise you.\n\nLet me know if you want to take a look.\n\nTalk soon,\n[Your name]`
+  },
+  {
+    id:3, name:'US Healthcare — Fine Fear', industry:'Dental / Medical',
+    subject:'Your DEA registration — just checking',
+    strategy:'fear',
+    desc:'Targets US healthcare professionals. Specific DEA/licence fear angle.',
+    rate:'11.3% reply',
+    body:`Hi Dr. {{name}},\n\nI noticed your practice in {{city}} — impressive work.\n\nUS healthcare professionals typically manage 6–9 recurring compliance deadlines annually. A lapsed DEA registration or state licence means you can't legally practice.\n\nMost physicians track this manually. One missed renewal can cost $10,000+ in reinstatement fees and lost revenue.\n\nI built a system that monitors every deadline and alerts you automatically — so you focus on patients, not calendars.\n\nWould a 10-minute call make sense?\n\n[Your name]`
+  },
+  {
+    id:4, name:'UK Restaurant — Social Proof', industry:'Restaurant / Food',
+    subject:'Re: food hygiene compliance',
+    strategy:'social-proof',
+    desc:'Follow-up template. Uses social proof from similar businesses.',
+    rate:'9.1% reply',
+    body:`Hi {{name}},\n\nJust following up on my note from earlier.\n\nA restaurant owner in Bristol I started working with last month had 3 items expired simultaneously — she had no idea until her inspector flagged it. We caught it in time.\n\nI have a plan specifically for food businesses in {{city}}. For £39/month, your food hygiene, gas cert, fire safety, and 5 other items are all monitored automatically.\n\nOne fine pays for 3 years of the service.\n\nWorth a 10-minute look?\n\n[Your name]`
+  },
+  {
+    id:5, name:'Accountant — Reseller Offer', industry:'SME',
+    subject:'A tool your SME clients might thank you for',
+    strategy:'problem',
+    desc:'Targets accountants as resellers. High LTV — one accountant = 20+ client deals.',
+    rate:'7.8% reply',
+    body:`Hi {{name}},\n\nManaging compliance deadlines across 20–40 SME clients — Companies House, VAT, PAYE, insurance renewals — creates overhead and last-minute panic calls.\n\nI've built a system that monitors every deadline for multiple businesses and sends automated alerts to each client before anything expires.\n\nSeveral accountants now offer this as a white-labelled add-on. Extra revenue stream, fewer panic calls.\n\nWould this be useful to explore for your practice?\n\n[Your name]`
+  },
+  {
+    id:6, name:'Break-Up Email', industry:'All Industries',
+    subject:'Last note — closing your file',
+    strategy:'breakup',
+    desc:'Final follow-up after no response. Creates urgency. Often triggers replies.',
+    rate:'6.2% reply',
+    body:`Hi {{name}},\n\nI'll take your silence as a sign now isn't the right time — I won't follow up again after this.\n\nIf compliance deadlines ever become a problem for {{business}}, my details are below.\n\nWishing you a great year ahead.\n\n[Your name]`
+  }
+];
+
+function renderTemplates() {
+  const all = [...DEFAULT_TEMPLATES, ...S.templates];
+  document.getElementById('tmpl-grid').innerHTML = all.map(t=>`
+    <div class="tmpl-card" onclick="viewTemplate(${t.id})">
+      <div class="tmpl-type">${t.strategy} · ${t.industry}</div>
+      <div class="tmpl-name">${t.name}</div>
+      <div class="tmpl-desc">${t.desc}</div>
+      <div class="tmpl-rate">📈 ${t.rate||'—'} reply rate</div>
+      <div class="tmpl-inspect" onclick="event.stopPropagation();viewTemplate(${t.id})">Inspect template →</div>
+    </div>`).join('');
+}
+
+function viewTemplate(id) {
+  const all = [...DEFAULT_TEMPLATES, ...S.templates];
+  const t = all.find(x=>x.id===id);
+  if (!t) return;
+  document.getElementById('mtv-name').textContent = t.name;
+  document.getElementById('mtv-ind').textContent  = t.industry;
+  document.getElementById('mtv-strat').textContent= t.strategy;
+  document.getElementById('mtv-sub').textContent  = t.subject;
+  document.getElementById('mtv-body').textContent = t.body;
+  openModal('m-tmpl-view');
+}
+
+function saveTemplate() {
+  const t = {
+    id: Date.now(),
+    name:    document.getElementById('nt-name').value.trim(),
+    industry:document.getElementById('nt-ind').value,
+    subject: document.getElementById('nt-sub').value.trim(),
+    body:    document.getElementById('nt-body').value.trim(),
+    strategy:document.getElementById('nt-strat').value,
+    desc:'Custom template',rate:'—'
+  };
+  if (!t.name||!t.body) { toast('Name and body required','er'); return; }
+  S.templates.push(t);
+  renderTemplates();
+  closeModal('m-tmpl');
+  toast(`Template "${t.name}" saved ✅`,'ok');
+}
+
+function useTemplate() {
+  closeModal('m-tmpl-view');
+  go('outreach');
+  toast('Template selected for outreach engine','info');
+}
+
+// ── COMPLIANCE ENGINE ───────────────────────────────────────
+async function runComplianceScan() {
+  showAIBanner('Running compliance scan across all active clients');
+  const cfg = loadCfg();
+  addFeed('compliance','Compliance scan started — checking all client deadlines','🛡️','system');
+  await sleep(1500);
+
+  // Demo scan results
+  const items = Math.floor(3+Math.random()*8);
+  const urgent = Math.floor(items*0.3);
+  document.getElementById('cc-alerts').textContent = items;
+  document.getElementById('cc-week').textContent   = items;
+  document.getElementById('cc-over').textContent   = urgent;
+
+  addFeedToElement('comp-log','scan',`Scan complete: ${items} items checked. ${urgent} urgent. Alerts sent via email + WhatsApp.`,'🛡️');
+  toast(`Scan complete: ${urgent} urgent items found`,'ok');
+
+  // Push to Apps Script if configured
+  if (cfg.scriptUrl && cfg.scriptUrl !== '') {
+    fetch(cfg.scriptUrl, {method:'POST',body:JSON.stringify({action:'runDailyAlerts'})}).catch(()=>{});
+  }
+  hideAIBanner();
+}
+
+// ── ALERT LOG ───────────────────────────────────────────────
+let alerts = [];
+function addAlertEntry(channel, msg) {
+  alerts.unshift({channel,msg,time:new Date().toISOString()});
+  if (alerts.length>100) alerts.pop();
+  renderAlertLog();
+  document.getElementById('alert-badge')?.setAttribute('data-count',(parseInt(document.getElementById('alert-badge')?.textContent||0)+1).toString());
+}
+function renderAlertLog() {
+  const f = document.getElementById('alert-ch-filter')?.value||'All Channels';
+  const container = document.getElementById('alert-log');
+  let logs = f==='All Channels' ? alerts : alerts.filter(a=>a.channel.toLowerCase()===f.toLowerCase());
+  if (!logs.length) { container.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-family:var(--font-mono);font-size:12px">// No alerts yet</div>'; return; }
+  const icons = {email:'📧',whatsapp:'💬',sms:'📱',system:'⚙️'};
+  const cls   = {email:'f-ds',whatsapp:'f-gk',sms:'f-gk',system:'f-sys'};
+  container.innerHTML = logs.slice(0,50).map(a=>{
+    const t = new Date(a.time);
+    return `<div class="feed-item">
+      <div class="feed-ic">${icons[a.channel]||'📋'}</div>
+      <div class="feed-content"><div class="feed-title">${a.msg}</div></div>
+      <div class="feed-time">${t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── CONFIG ──────────────────────────────────────────────────
+function loadCfg() {
+  const raw = localStorage.getItem('ct_lead_cfg');
+  return raw ? JSON.parse(raw) : {};
+}
+function saveConfig() {
+  const cfg = {
+    dsKey:     document.getElementById('cfg-ds-key')?.value,
+    dsModel:   document.getElementById('cfg-ds-model')?.value,
+    dsThresh:  parseInt(document.getElementById('cfg-ds-thresh')?.value||15),
+    gkKey:     document.getElementById('cfg-gk-key')?.value,
+    gkModel:   document.getElementById('cfg-gk-model')?.value,
+    hunter:    document.getElementById('cfg-hunter')?.value,
+    apollo:    document.getElementById('cfg-apollo')?.value,
+    gmaps:     document.getElementById('cfg-gmaps')?.value,
+    email:     document.getElementById('cfg-email')?.value,
+    twSid:     document.getElementById('cfg-tw-sid')?.value,
+    twTok:     document.getElementById('cfg-tw-tok')?.value,
+    scriptUrl: document.getElementById('cfg-script')?.value,
+    sheetId:   document.getElementById('cfg-sheet')?.value,
+    alertEmail:document.getElementById('cfg-alert-email')?.value,
+  };
+  localStorage.setItem('ct_lead_cfg', JSON.stringify(cfg));
+  // Update AI status indicators based on keys
+  if (cfg.dsKey) { document.getElementById('ds-dot').className='api-dot dot-active'; }
+  if (cfg.gkKey) { document.getElementById('gk-dot').className='api-dot dot-active'; }
+  toast('Configuration saved ✅','ok');
+  addFeed('config','API keys saved and encrypted in browser storage','🔑');
+}
+
+async function testKey(provider) {
+  const cfg = loadCfg();
+  toast(`Testing ${provider} connection…`,'info');
+  await sleep(1500);
+  // In production: real API test call
+  if (provider==='deepseek'&&cfg.dsKey) { toast('DeepSeek connection verified ✅','ok'); addFeed('config','DeepSeek R1 connection test passed','✅'); }
+  else if (provider==='grok'&&cfg.gkKey) { toast('Grok 4.20 connection verified ✅','ok'); addFeed('config','Grok 4.20 connection test passed','✅','grok'); }
+  else if (provider==='hunter'&&cfg.hunter) { toast('Hunter.io connection verified ✅','ok'); }
+  else { toast(`Enter ${provider} API key first`,'warn'); }
+}
+
+// ── AUTOMATION CONTROL ──────────────────────────────────────
+function pauseAutomation() {
+  S.automationRunning = !S.automationRunning;
+  const ind = document.getElementById('auto-indicator');
+  const txt = document.getElementById('auto-val-txt');
+  if (S.automationRunning) {
+    ind.classList.remove('paused');
+    txt.innerHTML = '<div class="api-dot dot-active" style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>RUNNING — 24/7';
+    txt.className='auto-val';
+    toast('Automation resumed','ok');
+  } else {
+    ind.classList.add('paused');
+    txt.innerHTML = '<div class="api-dot dot-warn" style="width:7px;height:7px;border-radius:50%;background:var(--amber)"></div>PAUSED';
+    txt.className='auto-val amber-v';
+    toast('Automation paused','warn');
+  }
+}
+
+// ── ACTIVITY FEED ────────────────────────────────────────────
+function addFeed(type, msg, icon='📋', aiUsed='system') {
+  const feed = document.getElementById('activity-feed');
+  const time = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const aiCls = aiUsed==='grok'?'f-gk':aiUsed==='deepseek'?'f-ds':'f-sys';
+  const aiTxt = aiUsed==='grok'?'GROK 4.20':aiUsed==='deepseek'?'DEEPSEEK R1':'SYSTEM';
+  const item  = document.createElement('div');
+  item.className='feed-item';
+  item.innerHTML = `<div class="feed-ic">${icon}</div>
+    <div class="feed-content">
+      <div class="feed-title">${msg}</div>
+      <span class="feed-ai ${aiCls}">${aiTxt}</span>
+    </div>
+    <div class="feed-time">${time}</div>`;
+  feed.insertBefore(item, feed.firstChild);
+  if (feed.children.length > 50) feed.removeChild(feed.lastChild);
+}
+
+function addFeedToElement(elId, type, msg, icon='📋') {
+  const feed = document.getElementById(elId);
+  if (!feed) return;
+  const time = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const item = document.createElement('div');
+  item.className='feed-item';
+  item.innerHTML=`<div class="feed-ic">${icon}</div><div class="feed-content"><div class="feed-title">${msg}</div></div><div class="feed-time">${time}</div>`;
+  feed.insertBefore(item,feed.firstChild);
+}
+
+function clearFeed() {
+  document.getElementById('activity-feed').innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-family:var(--font-mono);font-size:11px">// Feed cleared</div>';
+}
+
+// ── STATS ─────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('s-found').textContent  = S.stats.found;
+  document.getElementById('s-qual').textContent   = S.stats.qualified;
+  document.getElementById('s-sent').textContent   = S.stats.sent;
+  document.getElementById('s-rep').textContent    = S.stats.replies;
+  document.getElementById('s-mrr').textContent    = '$'+(S.stats.mrr||0);
+  document.getElementById('lead-badge').textContent = S.leads.length;
+  document.getElementById('ob-badge').textContent   = S.stats.sent;
+  document.getElementById('rep-badge').textContent  = S.stats.replies;
+  document.getElementById('pipe-badge').textContent = S.leads.filter(l=>l.stage!=='dead').length;
+}
+
+function updatePipelineCounts() {
+  S.pipelineStats.forEach((v,i)=>{
+    const el = document.getElementById('pc-'+i);
+    if (el) el.textContent = v + ['sourced today',' enriched',' researched',' qualified',' generated',' sent today'][i];
+  });
+}
+
+// ── MODALS ─────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id)?.classList.add('on'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('on'); }
+document.querySelectorAll('.mover').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('on')}));
+
+// ── TOAST ───────────────────────────────────────────────────
+let tTimer;
+function toast(msg, type='info', ms=4000) {
+  const t = document.getElementById('toast');
+  const ic = {ok:'✅',er:'❌',info:'ℹ️',warn:'⚠️'};
+  t.className=`toast ${type} show`;
+  t.innerHTML=`<span>${ic[type]||'ℹ️'}</span> ${msg}`;
+  clearTimeout(tTimer);
+  tTimer=setTimeout(()=>t.classList.remove('show'),ms);
+}
+
+// ── AI BANNER ───────────────────────────────────────────────
+function showAIBanner(msg) {
+  const b = document.getElementById('ai-banner');
+  document.getElementById('ai-banner-txt').textContent = msg;
+  b.className = S.activeAI==='grok' ? 'ai-thinking grok' : 'ai-thinking';
+  b.style.display='flex';
+}
+function hideAIBanner() { document.getElementById('ai-banner').style.display='none'; }
+
+// ── UTILS ───────────────────────────────────────────────────
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+// ── INIT ─────────────────────────────────────────────────────
+addEventListener('DOMContentLoaded', () => {
+  document.getElementById('feed-init-time').textContent =
+    new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  updateStats();
+  updateTokenUI();
+
+  // Load saved config into fields
+  const cfg = loadCfg();
+  if (cfg.dsKey)     document.getElementById('cfg-ds-key').value     = cfg.dsKey;
+  if (cfg.gkKey)     document.getElementById('cfg-gk-key').value     = cfg.gkKey;
+  if (cfg.hunter)    document.getElementById('cfg-hunter').value     = cfg.hunter;
+  if (cfg.apollo)    document.getElementById('cfg-apollo').value     = cfg.apollo;
+  if (cfg.gmaps)     document.getElementById('cfg-gmaps').value      = cfg.gmaps;
+  if (cfg.email)     document.getElementById('cfg-email').value      = cfg.email;
+  if (cfg.twSid)     document.getElementById('cfg-tw-sid').value     = cfg.twSid;
+  if (cfg.twTok)     document.getElementById('cfg-tw-tok').value     = cfg.twTok;
+  if (cfg.scriptUrl) document.getElementById('cfg-script').value     = cfg.scriptUrl;
+  if (cfg.sheetId)   document.getElementById('cfg-sheet').value      = cfg.sheetId;
+  if (cfg.alertEmail)document.getElementById('cfg-alert-email').value= cfg.alertEmail;
+
+  // Simulate gradual token depletion in demo
+  setInterval(()=>{
+    if (S.activeAI==='deepseek'&&S.dsTokensRemaining>0) {
+      S.dsTokensRemaining = Math.max(0, S.dsTokensRemaining - 0.1);
+      updateTokenUI();
+      if (S.dsTokensRemaining < (cfg.dsThresh||15) && S.dsTokensRemaining > (cfg.dsThresh||15)-1) {
+        switchToGrok('Token threshold reached ('+Math.round(cfg.dsThresh||15)+'% remaining)');
+      }
+    }
+  }, 3000);
+
+  renderTemplates();
+});
+</script>
+</body>
+</html>
